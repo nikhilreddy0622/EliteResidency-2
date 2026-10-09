@@ -1,0 +1,264 @@
+import { useState, useEffect } from 'react';
+import { reportAPI } from '../api';
+import { useAuth } from '../context/AuthContext';
+import { Link } from 'react-router-dom';
+import { format } from 'date-fns';
+import { toast } from 'react-toastify';
+import {
+  Search,
+  RefreshCcw,
+  Plus,
+  Eye,
+  Edit2,
+  Trash2,
+  Lock,
+  Unlock
+} from 'lucide-react';
+
+export default function Reports() {
+  const { user } = useAuth();
+  const [reports, setReports] = useState([]);
+  const [pagination, setPagination] = useState({});
+  const [loading, setLoading] = useState(true);
+
+  // Filters
+  const [status, setStatus] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    fetchReports();
+  }, [page, status, startDate, endDate]);
+
+  const fetchReports = async () => {
+    setLoading(true);
+    try {
+      const params = { page, limit: 10 };
+      if (status) params.status = status;
+      if (startDate) params.startDate = startDate;
+      if (endDate) params.endDate = endDate;
+      if (search) params.search = search;
+
+      const { data } = await reportAPI.getAll(params);
+      setReports(data.data);
+      setPagination(data.pagination);
+    } catch (err) {
+      toast.error('Failed to load reports');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSearch = (e) => {
+    e?.preventDefault();
+    setPage(1);
+    fetchReports();
+  };
+
+  const handleClear = () => {
+    setStatus('');
+    setStartDate('');
+    setEndDate('');
+    setSearch('');
+    setPage(1);
+    setTimeout(fetchReports, 0);
+  };
+
+  const handleDelete = async (id) => {
+    if (window.confirm('Are you sure you want to delete this invoice? This cannot be undone.')) {
+      try {
+        await reportAPI.delete(id);
+        toast.success('Invoice deleted successfully');
+        fetchReports();
+      } catch (err) {
+        toast.error(err.response?.data?.message || 'Failed to delete invoice');
+      }
+    }
+  };
+
+  const handleToggleLock = async (report) => {
+    const action = report.status === 'locked' ? 'unlock' : 'lock';
+    if (window.confirm(`Are you sure you want to ${action} this invoice?`)) {
+      try {
+        await reportAPI.lock(report._id, report.status !== 'locked');
+        toast.success(`Invoice ${action}ed successfully`);
+        fetchReports();
+      } catch (err) {
+        toast.error(err.response?.data?.message || `Failed to ${action} invoice`);
+      }
+    }
+  };
+
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 2
+    }).format(amount || 0);
+  };
+
+  return (
+    <div className="fade-in">
+      <div className="page-header">
+        <div className="page-header-row">
+          <div>
+            <h2>Invoices & Reports</h2>
+            <p>Manage, track, and generate invoices</p>
+          </div>
+          {(user?.role === 'admin' || user?.role === 'logger') && (
+            <Link to="/reports/new" className="btn btn-primary">
+              <Plus size={18} /> New Invoice
+            </Link>
+          )}
+        </div>
+      </div>
+
+      {/* Filters */}
+      <form className="filters-bar" onSubmit={handleSearch}>
+        <div className="filter-item">
+          <input
+            type="text"
+            className="form-input"
+            placeholder="Search invoice #, party, PO..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <div className="filter-item" style={{ minWidth: '140px' }}>
+          <select className="form-select" value={status} onChange={(e) => setStatus(e.target.value)}>
+            <option value="">All Statuses</option>
+            <option value="draft">Draft</option>
+            <option value="finalized">Finalized</option>
+            <option value="locked">Locked</option>
+          </select>
+        </div>
+        <div className="filter-item">
+          <input type="date" className="form-input" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+        </div>
+        <div className="filter-item">
+          <input type="date" className="form-input" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+        </div>
+        <div className="filter-actions">
+          <button type="submit" className="btn btn-primary btn-sm">
+            <Search size={16} /> Search
+          </button>
+          <button type="button" className="btn btn-outline btn-sm" onClick={handleClear}>
+            <RefreshCcw size={16} /> Clear
+          </button>
+        </div>
+      </form>
+
+      {/* Table */}
+      <div className="table-container">
+        <div className="table-header">
+          <h3>Results ({pagination.total || 0})</h3>
+        </div>
+        
+        <div className="table-wrapper">
+          {loading ? (
+            <div className="loading-container">
+              <div className="spinner" />
+            </div>
+          ) : reports.length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-icon">
+                <FileText size={64} strokeWidth={1} />
+              </div>
+              <h4>No invoices found</h4>
+              <p>Try adjusting your filters or create a new invoice</p>
+              {(user?.role === 'admin' || user?.role === 'logger') && (
+                <Link to="/reports/new" className="btn btn-primary mt-4" style={{ marginTop: '20px' }}>
+                  Create Invoice
+                </Link>
+              )}
+            </div>
+          ) : (
+            <table>
+              <thead>
+                <tr>
+                  <th>Invoice #</th>
+                  <th>Date</th>
+                  <th>Party Name</th>
+                  <th>Vehicle No</th>
+                  <th>Amount</th>
+                  <th>Status</th>
+                  <th style={{ textAlign: 'right' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {reports.map((report) => (
+                  <tr key={report._id}>
+                    <td>
+                      <Link to={`/reports/${report._id}`} style={{ fontWeight: 600 }}>
+                        {report.invoiceNumber}
+                      </Link>
+                    </td>
+                    <td className="text-muted">
+                      {format(new Date(report.invoiceDate), 'dd/MM/yyyy')}
+                    </td>
+                    <td style={{ fontWeight: 500, color: 'var(--text-primary)' }}>
+                      {report.partyDetails?.name || '-'}
+                    </td>
+                    <td>{report.vehicleNo || '-'}</td>
+                    <td style={{ fontWeight: 600 }}>{formatCurrency(report.totalAmount)}</td>
+                    <td>
+                      <span className={`badge badge-${report.status}`}>
+                        {report.status}
+                      </span>
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                        <Link to={`/reports/${report._id}`} className="btn btn-ghost btn-icon btn-sm" title="View">
+                          <Eye size={16} />
+                        </Link>
+                        
+                        {(user?.role === 'admin' || user?.role === 'logger') && report.status !== 'locked' && (
+                          <Link to={`/reports/${report._id}/edit`} className="btn btn-ghost btn-icon btn-sm" title="Edit">
+                            <Edit2 size={16} />
+                          </Link>
+                        )}
+
+                        {user?.role === 'admin' && (
+                          <>
+                            <button
+                              className={`btn btn-ghost btn-icon btn-sm ${report.status === 'locked' ? 'text-warning' : 'text-danger'}`}
+                              onClick={() => handleToggleLock(report)}
+                              title={report.status === 'locked' ? 'Unlock Invoice' : 'Lock Invoice'}
+                            >
+                              {report.status === 'locked' ? <Unlock size={16} /> : <Lock size={16} />}
+                            </button>
+                            
+                            <button
+                              className="btn btn-ghost btn-icon btn-sm text-danger"
+                              onClick={() => handleDelete(report._id)}
+                              title="Delete"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {/* Pagination */}
+        {pagination.pages > 1 && (
+          <div className="pagination">
+            <button disabled={page <= 1} onClick={() => setPage(page - 1)}>Prev</button>
+            {Array.from({ length: Math.min(pagination.pages, 10) }, (_, i) => i + 1).map((p) => (
+              <button key={p} className={p === page ? 'active' : ''} onClick={() => setPage(p)}>{p}</button>
+            ))}
+            <button disabled={page >= pagination.pages} onClick={() => setPage(page + 1)}>Next</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
