@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const API = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || '/api'
+  baseURL: import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://eliteresidency-2.onrender.com/api' : '/api')
 });
 
 // Request interceptor to add auth token
