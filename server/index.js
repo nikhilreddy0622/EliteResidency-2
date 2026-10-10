@@ -20,7 +20,11 @@ app.use('/api/auth', authRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/audit-logs', auditLogRoutes);
 
-// Health check
+// Root & Health check
+app.get('/', (req, res) => {
+  res.json({ message: 'Elite Residency API is running', status: 'ok' });
+});
+
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
