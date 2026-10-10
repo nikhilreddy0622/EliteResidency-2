@@ -12,7 +12,8 @@ import {
   Edit2,
   Trash2,
   Lock,
-  Unlock
+  Unlock,
+  FileText
 } from 'lucide-react';
 
 export default function Reports() {

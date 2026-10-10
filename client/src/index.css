@@ -1244,3 +1244,108 @@ tbody tr:hover {
     gap: 4px;
   }
 }
+
+/* ========== INVOICE PREVIEW & SMALL-SCREEN FORMS ========== */
+.invoice-preview-shell {
+  overflow-x: auto;
+  background: var(--bg-secondary);
+  padding: 24px;
+  border-radius: var(--radius-lg);
+  -webkit-overflow-scrolling: touch;
+}
+
+.invoice-paper {
+  width: 800px;
+  min-width: 800px;
+  margin: 0 auto;
+  padding: 40px;
+  background: #fff;
+  color: #000;
+  font-family: Arial, sans-serif;
+  font-size: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, .5);
+}
+
+.line-items-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.line-items-table {
+  min-width: 800px;
+}
+
+@media (max-width: 640px) {
+  html { font-size: 14px; }
+
+  .main-content {
+    padding: 80px 12px 24px;
+  }
+
+  .mobile-header {
+    height: 58px;
+    padding: 0 12px;
+  }
+
+  .mobile-header h1 { font-size: 1rem !important; }
+  .sidebar { width: min(86vw, 300px); }
+  .sidebar-logo { padding: 20px; }
+
+  .page-header-row > div:first-child { align-items: flex-start; text-align: left; }
+  .page-header h2 { font-size: 1.35rem; line-height: 1.25; }
+  .page-header-row > div:last-child { width: 100%; }
+  .page-header-row > div:last-child .btn { flex: 1; padding-inline: 12px; }
+
+  .card { padding: 14px; border-radius: 10px; }
+  .card-header { margin-bottom: 16px; padding-bottom: 10px; }
+  .form-group { margin-bottom: 16px; }
+  .form-input, .form-select, .form-textarea { padding: 11px 12px; font-size: 16px; }
+  .btn { min-height: 42px; padding: 10px 14px; }
+  .btn-icon { min-height: 36px; }
+
+  /* Turn the wide item editor into compact, labelled cards on phones. */
+  .line-items-table { min-width: 0; }
+  .line-items-table thead { display: none; }
+  .line-items-table, .line-items-table tbody, .line-items-table tr, .line-items-table td { display: block; width: 100%; }
+  .line-items-table tr {
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border-color);
+  }
+  .line-items-table tr:last-child { border-bottom: 0; }
+  .line-items-table td {
+    border: 0;
+    padding: 6px 0 !important;
+  }
+  .line-items-table td:not(.line-item-remove)::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 5px;
+    color: var(--text-muted);
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+  }
+  .line-items-table .line-item-remove { text-align: right !important; }
+
+  .invoice-preview-shell { padding: 10px; margin-inline: -12px; border-radius: 0; }
+  .invoice-paper { transform-origin: top left; }
+
+  .table-header { padding: 16px; }
+  th, td { padding: 13px 16px; }
+  .pagination { gap: 4px; padding: 14px 8px; overflow-x: auto; justify-content: flex-start; }
+  .pagination button { padding: 8px 12px; }
+}
+
+@media print {
+  body { background: #fff; }
+  .invoice-paper {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    box-shadow: none;
+    font-size: 11px;
+  }
+}

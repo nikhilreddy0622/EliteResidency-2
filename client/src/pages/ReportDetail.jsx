@@ -10,8 +10,7 @@ import {
   Printer,
   Edit2,
   Lock,
-  Unlock,
-  Download
+  Unlock
 } from 'lucide-react';
 
 export default function ReportDetail() {
@@ -155,14 +154,14 @@ export default function ReportDetail() {
       {/* Print Preview Container */}
       <div style={{ marginTop: '32px' }}>
         <h3 style={{ marginBottom: '16px' }}>Invoice Preview</h3>
-        <div style={{ overflowX: 'auto', background: 'var(--bg-secondary)', padding: '24px', borderRadius: '8px' }}>
-          <div ref={printRef} style={{ minWidth: '800px', maxWidth: '800px', margin: '0 auto', padding: '40px', background: 'white', color: 'black', fontFamily: 'Arial, sans-serif', fontSize: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }}>
+        <div className="invoice-preview-shell">
+          <div ref={printRef} className="invoice-paper">
           
           {/* Top Bar 1 */}
           <div style={{ display: 'flex', border: '1px solid black', borderBottom: 'none', color: '#0d8aab', fontWeight: 'bold' }}>
             <div style={{ width: '33.33%', padding: '4px 8px', borderRight: '1px solid black' }}>GSTIN.{report.companyDetails?.gstin}</div>
             <div style={{ width: '33.33%', padding: '4px 8px', borderRight: '1px solid black', textAlign: 'center' }}>TAX INVOICE</div>
-            <div style={{ width: '33.33%', padding: '4px 8px' }}>PAN NO. {report.companyDetails?.pan}</div>
+            <div style={{ width: '33.33%', padding: '4px 8px' }}>PAN NO. {report.companyDetails?.panNo}</div>
           </div>
           
           {/* Top Bar 2 */}
@@ -178,15 +177,15 @@ export default function ReportDetail() {
               {report.companyDetails?.name}
             </h1>
             <div style={{ color: '#2e7d32', fontWeight: 'bold', fontSize: '12px', lineHeight: '1.4' }}>
-              {report.companyDetails?.address.split('\n').map((line, i) => <div key={i}>{line}</div>)}
+              {(report.companyDetails?.address || '').split('\n').filter(Boolean).map((line, i) => <div key={i}>{line}</div>)}
             </div>
           </div>
 
           {/* Delivery Challan Bar */}
           <div style={{ display: 'flex', border: '1px solid black', borderBottom: 'none', color: '#0d8aab', fontWeight: 'bold', padding: '4px 8px' }}>
-            <div style={{ width: '33.33%' }}>DELIVERY CHALLAN NO.:</div>
-            <div style={{ width: '33.33%', textAlign: 'center' }}>CASH/CREDIT BILL</div>
-            <div style={{ width: '33.33%', textAlign: 'right' }}>E-mail : bfbprasad@gmail.com</div>
+            <div style={{ width: '33.33%' }}>DELIVERY CHALLAN NO.: {report.deliveryChallanNo || '-'}</div>
+            <div style={{ width: '33.33%', textAlign: 'center' }}>{report.billType || 'CASH/CREDIT BILL'}</div>
+            <div style={{ width: '33.33%', textAlign: 'right' }}>E-mail : {report.companyDetails?.email || 'bfbprasad@gmail.com'}</div>
           </div>
 
           {/* Party Details Section */}
@@ -198,13 +197,13 @@ export default function ReportDetail() {
               <div style={{ marginTop: 'auto' }}>
                 <div>HSN CODE : {report.lineItems?.[0]?.hsnCode || ''}</div>
                 <div>PARTY GSTIN: {report.partyDetails?.gstin}</div>
-                <div>PAN NO : {report.partyDetails?.gstin ? report.partyDetails.gstin.substring(2, 12) : ''}</div>
+                <div>PAN NO : {report.partyDetails?.panNo || (report.partyDetails?.gstin ? report.partyDetails.gstin.substring(2, 12) : '')}</div>
               </div>
             </div>
             <div style={{ width: '40%', display: 'flex', flexDirection: 'column', alignItems: 'center', fontWeight: 'bold', paddingTop: '8px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', padding: '0 20px' }}>
                 <div>PO. NO. {report.poNumber || ''}</div>
-                <div>VENDOR CODE: 1021036</div>
+                <div>VENDOR CODE: {report.companyDetails?.vendorCode || '1021036'}</div>
               </div>
               <div style={{ marginTop: '8px' }}>{report.vehicleNo || ''}</div>
             </div>
@@ -293,10 +292,10 @@ export default function ReportDetail() {
             <div style={{ width: '50%', padding: '8px', borderRight: '1px solid black', display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <div style={{ textDecoration: 'underline', textAlign: 'center' }}>BANK DETAILS</div>
               <div>{report.companyDetails?.name}</div>
-              <div>BANK A/C NO : 22962000000396</div>
-              <div>RTGS/IFSC CODE : HDFC0002296</div>
-              <div>HDFC BANK</div>
-              <div>BHADRACHALAM -507111</div>
+              <div>BANK A/C NO : {report.bankDetails?.accountNo || '22962000000396'}</div>
+              <div>RTGS/IFSC CODE : {report.bankDetails?.ifscCode || 'HDFC0002296'}</div>
+              <div>{report.bankDetails?.bankName || 'HDFC BANK'}</div>
+              <div>{report.bankDetails?.branch || 'BHADRACHALAM -507111'}</div>
               <div style={{ marginTop: 'auto' }}>NOTE: DETAILS SHEET ENCLOSED HERE WITH</div>
             </div>
             <div style={{ width: '50%', padding: '8px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', alignItems: 'center' }}>

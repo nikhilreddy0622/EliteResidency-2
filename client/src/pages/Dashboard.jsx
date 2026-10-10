@@ -24,32 +24,20 @@ export default function Dashboard() {
 
   const fetchDashboardData = async () => {
     try {
-      const [reportsRes, logsRes] = await Promise.all([
+      const [reportsRes, logsRes, statsRes] = await Promise.all([
         reportAPI.getAll({ limit: 5 }),
-        user?.role !== 'viewer' ? auditAPI.getAll({ limit: 5 }) : Promise.resolve({ data: { data: [] } })
+        user?.role !== 'viewer' ? auditAPI.getAll({ limit: 5 }) : Promise.resolve({ data: { data: [] } }),
+        reportAPI.getStats()
       ]);
 
       const reports = reportsRes.data.data;
-      
-      const draft = reportsRes.data.pagination.total || 0; // Total overall count requires a separate stats endpoint ideally
-      
-      let total = 0, locked = 0, finalized = 0, amount = 0;
-      
-      if (reportsRes.data.pagination.total) {
-        total = reportsRes.data.pagination.total;
-      }
-
-      reports.forEach(r => {
-        if (r.status === 'locked') locked++;
-        else if (r.status === 'finalized') finalized++;
-        amount += r.grandTotal || 0;
-      });
+      const totals = statsRes.data.data;
 
       setStats({
-        total,
-        finalized,
-        locked,
-        totalAmount: amount
+        total: totals.totalReports || 0,
+        finalized: totals.finalizedReports || 0,
+        locked: totals.lockedReports || 0,
+        totalAmount: totals.totalRevenue || 0
       });
       setRecentReports(reports);
       setRecentLogs(logsRes.data.data);
@@ -58,17 +46,6 @@ export default function Dashboard() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const getActionColor = (action) => {
-    const map = {
-      created: 'badge-created',
-      edited: 'badge-edited',
-      locked: 'badge-locked',
-      unlocked: 'badge-unlocked',
-      deleted: 'badge-deleted'
-    };
-    return map[action] || 'badge-draft';
   };
 
   const formatCurrency = (amount) => {

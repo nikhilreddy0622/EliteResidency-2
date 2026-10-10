@@ -3,7 +3,9 @@ const mongoose = require('mongoose');
 const lineItemSchema = new mongoose.Schema({
   sno: { type: Number, required: true },
   description: { type: String, required: true, trim: true },
+  hsnCode: { type: String, trim: true },
   quantity: { type: Number, required: true },
+  uom: { type: String, trim: true, default: 'NOS' },
   rate: { type: Number, required: true },
   amount: { type: Number, required: true }
 }, { _id: false });
@@ -52,11 +54,17 @@ const reportSchema = new mongoose.Schema({
     address: { type: String, trim: true },
     gstin: { type: String, trim: true },
     panNo: { type: String, trim: true },
+    state: { type: String, trim: true },
+    stateCode: { type: String, trim: true },
     poNumber: { type: String, trim: true },
     vendorCode: { type: String, trim: true },
     vehicleNo: { type: String, trim: true },
     phone: { type: String, trim: true }
   },
+
+  // Transport and purchase details shown on the invoice
+  poNumber: { type: String, trim: true },
+  vehicleNo: { type: String, trim: true },
 
   // Delivery address
   deliveryAddress: { type: String, trim: true },

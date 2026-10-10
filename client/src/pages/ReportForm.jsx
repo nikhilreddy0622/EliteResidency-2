@@ -15,15 +15,19 @@ const initialCompanyDetails = {
   name: 'BHARATH ELITE ENTERPRISES',
   address: 'Office D.NO.:2-295 ,OPP- EAST GATE, SARAPAKA , BURGUMPAHAD MANDAL,\nSARAPAKA -507128 BHADRADRI KOTHAGUDEM DT, TELANGANA STATE\nPh No: 08743-232929 ; 995999-6666 VENDOR CODE: 1021036',
   gstin: '36AJVPP5821A1Z2',
-  pan: 'AJVPP5821A',
+  panNo: 'AJVPP5821A',
   state: 'Telangana',
-  stateCode: '36'
+  stateCode: '36',
+  vendorCode: '1021036',
+  email: 'bfbprasad@gmail.com',
+  phone: '08743-232929; 995999-6666'
 };
 
 const initialPartyDetails = {
   name: '',
   address: '',
   gstin: '',
+  panNo: '',
   state: '',
   stateCode: '',
   phone: ''
@@ -79,7 +83,12 @@ export default function ReportForm() {
       
       // Ensure company details remain the latest standardized version even when editing
       const fetchedData = data.data;
-      fetchedData.companyDetails = { ...initialCompanyDetails };
+      fetchedData.companyDetails = {
+        ...initialCompanyDetails,
+        ...(fetchedData.companyDetails || {}),
+        panNo: fetchedData.companyDetails?.panNo || fetchedData.companyDetails?.pan || initialCompanyDetails.panNo
+      };
+      fetchedData.partyDetails = { ...initialPartyDetails, ...(fetchedData.partyDetails || {}) };
       
       // Format date for input
       if (fetchedData.invoiceDate) {
@@ -194,14 +203,27 @@ export default function ReportForm() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const hasInvalidItem = formData.lineItems.some((item) => !item.description.trim() || Number(item.quantity) <= 0 || Number(item.rate) < 0);
+    if (hasInvalidItem) {
+      toast.error('Add a description, quantity, and valid rate for every line item.');
+      return;
+    }
     setLoading(true);
 
     const payload = {
       ...formData,
       lineItems: formData.lineItems.map((item, index) => ({
         ...item,
+        description: item.description.trim(),
+        hsnCode: item.hsnCode?.trim(),
+        uom: item.uom?.trim() || 'NOS',
         sno: index + 1
       })),
+      companyDetails: {
+        ...initialCompanyDetails,
+        ...formData.companyDetails,
+        panNo: formData.companyDetails.panNo || initialCompanyDetails.panNo
+      },
       cgstRate: formData.taxDetails.cgstRate,
       cgstAmount: formData.taxDetails.cgstAmount,
       sgstRate: formData.taxDetails.sgstRate,
@@ -299,6 +321,16 @@ export default function ReportForm() {
                 onChange={(e) => handleChange(null, 'vehicleNo', e.target.value)}
               />
             </div>
+            <div className="form-group">
+              <label className="form-label">Delivery Challan No (Optional)</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="Delivery challan number"
+                value={formData.deliveryChallanNo || ''}
+                onChange={(e) => handleChange(null, 'deliveryChallanNo', e.target.value)}
+              />
+            </div>
             {!isEdit && (
               <div className="form-group">
                 <label className="form-label">Status</label>
@@ -353,19 +385,35 @@ export default function ReportForm() {
                 />
               </div>
               <div className="form-group">
-                <label className="form-label">State & Code</label>
+                <label className="form-label">State</label>
                 <input
                   type="text"
                   className="form-input"
-                  placeholder="Telangana (36)"
-                  value={`${formData.partyDetails.state} ${formData.partyDetails.stateCode ? `(${formData.partyDetails.stateCode})` : ''}`.trim()}
-                  onChange={(e) => {
-                    // Simple parse if user types something like "Telangana (36)"
-                    const val = e.target.value;
-                    const match = val.match(/(.*?)\s*(?:\((.*?)\))?$/);
-                    handleChange('partyDetails', 'state', match[1]?.trim() || val);
-                    if (match[2]) handleChange('partyDetails', 'stateCode', match[2].trim());
-                  }}
+                  placeholder="Telangana"
+                  value={formData.partyDetails.state}
+                  onChange={(e) => handleChange('partyDetails', 'state', e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label">State Code</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="36"
+                  value={formData.partyDetails.stateCode}
+                  onChange={(e) => handleChange('partyDetails', 'stateCode', e.target.value.replace(/\D/g, '').slice(0, 2))}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">PAN No. (Optional)</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="AAACI5950L"
+                  value={formData.partyDetails.panNo}
+                  onChange={(e) => handleChange('partyDetails', 'panNo', e.target.value.toUpperCase())}
                 />
               </div>
             </div>
@@ -402,7 +450,7 @@ export default function ReportForm() {
             <div className="form-row readonly-row">
               <div className="form-group">
                 <label className="form-label">PAN</label>
-                <input type="text" className="form-input" value={formData.companyDetails.pan} readOnly />
+                <input type="text" className="form-input" value={formData.companyDetails.panNo} readOnly />
               </div>
               <div className="form-group">
                 <label className="form-label">State</label>
@@ -422,8 +470,8 @@ export default function ReportForm() {
             </button>
           </div>
           
-          <div className="table-wrapper" style={{ overflow: 'visible' }}>
-            <table style={{ minWidth: '800px' }}>
+          <div className="table-wrapper line-items-wrapper">
+            <table className="line-items-table">
               <thead>
                 <tr>
                   <th style={{ width: '40%' }}>Description of Goods</th>
@@ -438,7 +486,7 @@ export default function ReportForm() {
               <tbody>
                 {formData.lineItems.map((item, index) => (
                   <tr key={index}>
-                    <td style={{ padding: '8px' }}>
+                    <td data-label="Description of goods" style={{ padding: '8px' }}>
                       <textarea
                         className="form-input"
                         style={{ minHeight: '40px', resize: 'vertical' }}
@@ -448,7 +496,7 @@ export default function ReportForm() {
                         required
                       />
                     </td>
-                    <td style={{ padding: '8px' }}>
+                    <td data-label="HSN / SAC" style={{ padding: '8px' }}>
                       <input
                         type="text"
                         className="form-input"
@@ -456,7 +504,7 @@ export default function ReportForm() {
                         onChange={(e) => handleLineItemChange(index, 'hsnCode', e.target.value)}
                       />
                     </td>
-                    <td style={{ padding: '8px' }}>
+                    <td data-label="Quantity" style={{ padding: '8px' }}>
                       <input
                         type="number"
                         className="form-input"
@@ -467,7 +515,7 @@ export default function ReportForm() {
                         required
                       />
                     </td>
-                    <td style={{ padding: '8px' }}>
+                    <td data-label="UOM" style={{ padding: '8px' }}>
                       <input
                         type="text"
                         className="form-input"
@@ -475,7 +523,7 @@ export default function ReportForm() {
                         onChange={(e) => handleLineItemChange(index, 'uom', e.target.value)}
                       />
                     </td>
-                    <td style={{ padding: '8px' }}>
+                    <td data-label="Rate (₹)" style={{ padding: '8px' }}>
                       <input
                         type="number"
                         className="form-input"
@@ -486,12 +534,12 @@ export default function ReportForm() {
                         required
                       />
                     </td>
-                    <td style={{ padding: '8px' }}>
+                    <td data-label="Amount (₹)" style={{ padding: '8px' }}>
                       <div className="form-input" style={{ background: 'var(--bg-secondary)', color: 'var(--text-muted)' }}>
                         {item.amount.toFixed(2)}
                       </div>
                     </td>
-                    <td style={{ padding: '8px', textAlign: 'center' }}>
+                    <td data-label="" className="line-item-remove" style={{ padding: '8px', textAlign: 'center' }}>
                       <button
                         type="button"
                         className="btn btn-ghost btn-icon text-danger"
