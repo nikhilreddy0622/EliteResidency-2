@@ -154,21 +154,21 @@ export default function ReportDetail() {
           <div ref={printRef} className="invoice-paper">
           
           {/* Top Bar 1 */}
-          <div style={{ display: 'flex', border: '1px solid black', borderBottom: 'none', color: '#0d8aab', fontWeight: 'bold' }}>
+          <div className="invoice-top-row" style={{ display: 'flex', border: '1px solid black', borderBottom: 'none', color: '#0d8aab', fontWeight: 'bold' }}>
             <div style={{ width: '33.33%', padding: '4px 8px', borderRight: '1px solid black' }}>GSTIN.{report.companyDetails?.gstin}</div>
             <div style={{ width: '33.33%', padding: '4px 8px', borderRight: '1px solid black', textAlign: 'center' }}>TAX INVOICE</div>
             <div style={{ width: '33.33%', padding: '4px 8px' }}>PAN NO. {report.companyDetails?.panNo}</div>
           </div>
           
           {/* Top Bar 2 */}
-          <div style={{ display: 'flex', border: '1px solid black', borderBottom: 'none', color: '#0d8aab', fontWeight: 'bold' }}>
+          <div className="invoice-top-row" style={{ display: 'flex', border: '1px solid black', borderBottom: 'none', color: '#0d8aab', fontWeight: 'bold' }}>
             <div style={{ width: '33.33%', padding: '4px 8px', borderRight: '1px solid black' }}>STATE CODE. {report.companyDetails?.stateCode}</div>
             <div style={{ width: '33.33%', padding: '4px 8px', borderRight: '1px solid black', textAlign: 'center' }}>DATE. {format(new Date(report.invoiceDate), 'dd.MM.yyyy')}</div>
             <div style={{ width: '33.33%', padding: '4px 8px' }}>INVOICE NO. {report.invoiceNumber}</div>
           </div>
 
           {/* Header Section */}
-          <div style={{ padding: '12px 8px', textAlign: 'center', border: '1px solid black', borderBottom: 'none' }}>
+          <div className="invoice-company-header" style={{ padding: '12px 8px', textAlign: 'center', border: '1px solid black', borderBottom: 'none' }}>
             <h1 style={{ margin: '0 0 8px 0', color: '#d32f2f', fontFamily: '"Times New Roman", Times, serif', fontSize: '28px', fontWeight: 'bold' }}>
               {report.companyDetails?.name}
             </h1>
@@ -178,14 +178,14 @@ export default function ReportDetail() {
           </div>
 
           {/* Delivery Challan Bar */}
-          <div style={{ display: 'flex', border: '1px solid black', borderBottom: 'none', color: '#0d8aab', fontWeight: 'bold', padding: '4px 8px' }}>
+          <div className="invoice-delivery-row" style={{ display: 'flex', border: '1px solid black', borderBottom: 'none', color: '#0d8aab', fontWeight: 'bold', padding: '4px 8px' }}>
             <div style={{ width: '33.33%' }}>DELIVERY CHALLAN NO.: {report.deliveryChallanNo || '-'}</div>
             <div style={{ width: '33.33%', textAlign: 'center' }}>{report.billType || 'CASH/CREDIT BILL'}</div>
             <div style={{ width: '33.33%', textAlign: 'right' }}>E-mail : {report.companyDetails?.email || 'bfbprasad@gmail.com'}</div>
           </div>
 
           {/* Party Details Section */}
-          <div style={{ display: 'flex', border: '1px solid black', borderBottom: 'none', minHeight: '120px' }}>
+          <div className="invoice-party-section" style={{ display: 'flex', border: '1px solid black', borderBottom: 'none', minHeight: '120px' }}>
             <div style={{ width: '60%', padding: '8px', display: 'flex', flexDirection: 'column', gap: '8px', fontWeight: 'bold' }}>
               <div>NAME OF THE PARTY: {report.partyDetails?.name}</div>
               <div>PARTY ADDRESS: {report.partyDetails?.address}</div>
@@ -206,7 +206,7 @@ export default function ReportDetail() {
           </div>
 
           {/* Table */}
-          <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid black', borderBottom: 'none' }}>
+          <table className="invoice-items" style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid black', borderBottom: 'none' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid black' }}>
                 <th style={{ borderRight: '1px solid black', padding: '8px', width: '6%' }}>S.NO.</th>
@@ -236,7 +236,7 @@ export default function ReportDetail() {
               ))}
               
               {/* Empty filler rows to push total down if needed, but we'll just let it flow */}
-              <tr style={{ borderBottom: '1px solid black', fontWeight: 'bold' }}>
+              <tr className="invoice-total-row" style={{ borderBottom: '1px solid black', fontWeight: 'bold' }}>
                 <td colSpan="2" style={{ borderRight: '1px solid black', padding: '8px', textAlign: 'center' }}>TOTAL</td>
                 <td style={{ borderRight: '1px solid black', padding: '8px', textAlign: 'center' }}>
                   {report.lineItems?.reduce((sum, item) => sum + Number(item.quantity), 0).toLocaleString('en-IN')}
@@ -252,14 +252,11 @@ export default function ReportDetail() {
           </table>
 
           {/* Tax Breakdown */}
-          {report.invoiceType === 'gst_returnable' && (
-            <div style={{ padding: '4px 8px', border: '1px solid black', borderBottom: 'none', fontWeight: 'bold' }}>
-              TAX HAS TO BE PAID UNDER REVERSE CHARGE
+          <div className="invoice-tax-area" style={{ display: 'flex', border: '1px solid black', borderBottom: 'none', borderTop: 'none', fontWeight: 'bold' }}>
+            <div className={`invoice-tax-note ${report.invoiceType === 'gst_returnable' ? 'is-reverse-charge' : ''}`} style={{ width: '50%', borderRight: '1px solid black' }}>
+              {report.invoiceType === 'gst_returnable' && 'TAX HAS TO BE PAID UNDER REVERSE CHARGE'}
             </div>
-          )}
-          <div style={{ display: 'flex', border: '1px solid black', borderBottom: 'none', borderTop: 'none', fontWeight: 'bold' }}>
-            <div style={{ width: '50%', borderRight: '1px solid black' }}></div>
-            <div style={{ width: '50%' }}>
+            <div className="invoice-tax-summary" style={{ width: '50%' }}>
               <div style={{ display: 'flex', borderBottom: '1px solid black' }}>
                 <div style={{ width: '60%', padding: '4px 8px', borderRight: '1px solid black' }}>TOTAL AMOUNT =</div>
                 <div style={{ width: '40%', padding: '4px 8px', textAlign: 'right' }}>Rs. {report.totalAmount?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
@@ -284,7 +281,7 @@ export default function ReportDetail() {
           </div>
 
           {/* Amount in Words */}
-          <div style={{ padding: '4px 8px', border: '1px solid black', borderBottom: 'none', borderTop: 'none', fontWeight: 'bold' }}>
+          <div className="invoice-words" style={{ padding: '4px 8px', border: '1px solid black', borderBottom: 'none', borderTop: 'none', fontWeight: 'bold' }}>
             AMOUNT IN WORDS : {report.amountInWords}
           </div>
 

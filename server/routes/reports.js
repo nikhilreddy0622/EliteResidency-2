@@ -4,6 +4,7 @@ const Report = require('../models/Report');
 const AuditLog = require('../models/AuditLog');
 const Counter = require('../models/Counter');
 const Customer = require('../models/Customer');
+const { amountInWords } = require('../utils/amountInWords');
 const { protect, authorize } = require('../middleware/auth');
 
 const router = express.Router();
@@ -46,7 +47,8 @@ const buildCalculatedInvoice = (input) => {
     sgstAmount,
     igstRate: 0,
     igstAmount: 0,
-    grandTotal
+    grandTotal,
+    amountInWords: amountInWords(grandTotal)
   };
 };
 
@@ -373,7 +375,7 @@ router.put('/:id', protect, authorize('admin', 'logger'), async (req, res) => {
 
     // A logger may update invoice details but can never alter the invoice date,
     // lifecycle, number, ownership, or calculated values directly.
-    const allowedLoggerFields = ['invoiceType', 'partyDetails', 'poNumber', 'vehicleNo', 'deliveryChallanNo', 'billType', 'deliveryAddress', 'hsnCode', 'lineItems', 'bankDetails', 'notes', 'amountInWords'];
+    const allowedLoggerFields = ['invoiceType', 'partyDetails', 'poNumber', 'vehicleNo', 'deliveryChallanNo', 'billType', 'deliveryAddress', 'hsnCode', 'lineItems', 'bankDetails', 'notes'];
     const requestedData = req.user.role === 'logger'
       ? Object.fromEntries(allowedLoggerFields.filter((key) => req.body[key] !== undefined).map((key) => [key, req.body[key]]))
       : req.body;

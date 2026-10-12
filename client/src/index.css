@@ -1278,16 +1278,34 @@ tbody tr:hover {
 }
 
 .invoice-paper {
-  width: 800px;
-  min-width: 800px;
+  width: 820px;
+  min-width: 820px;
   margin: 0 auto;
-  padding: 40px;
+  padding: 0;
   background: #fff;
   color: #000;
-  font-family: Arial, sans-serif;
-  font-size: 12px;
+  font-family: "Times New Roman", Times, serif;
+  font-size: 14px;
+  line-height: 1.12;
   box-shadow: 0 4px 12px rgba(0, 0, 0, .5);
 }
+
+.invoice-paper * { box-sizing: border-box; }
+.invoice-top-row { min-height: 26px; align-items: center; font-size: 14px; }
+.invoice-company-header { min-height: 112px; display: flex; flex-direction: column; justify-content: center; }
+.invoice-company-header h1 { font-size: 27px !important; line-height: 1; }
+.invoice-delivery-row { min-height: 28px; align-items: center; font-size: 13px; }
+.invoice-party-section { min-height: 185px !important; }
+.invoice-items { font-size: 14px; }
+.invoice-items th { font-size: 14px; color: #000; background: #fff; letter-spacing: 0; }
+.invoice-items td, .invoice-items th { line-height: 1.14; }
+.invoice-total-row td { padding-block: 7px !important; }
+.invoice-tax-area { min-height: 122px; }
+.invoice-tax-note { padding: 10px; min-height: 122px; display: flex; align-items: flex-start; }
+.invoice-tax-note.is-reverse-charge { color: #d60000; font-size: 16px; font-weight: 800; line-height: 1.2; }
+.invoice-tax-summary { font-size: 14px; }
+.invoice-tax-summary > div { min-height: 25px; align-items: center; }
+.invoice-words { min-height: 27px; display: flex; align-items: center; font-size: 14px; }
 
 .line-items-wrapper {
   overflow-x: auto;

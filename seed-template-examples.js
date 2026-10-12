@@ -5,6 +5,7 @@ const AuditLog = require('./server/models/AuditLog');
 const Counter = require('./server/models/Counter');
 const User = require('./server/models/User');
 const { seedCustomers } = require('./server/seedCustomers');
+const { amountInWords } = require('./server/utils/amountInWords');
 
 const examples = [
   {
@@ -81,7 +82,7 @@ const createExample = async (example, creator) => {
     igstRate: 0,
     igstAmount: 0,
     grandTotal,
-    amountInWords: '',
+    amountInWords: amountInWords(grandTotal),
     isLocked: example.status === 'locked',
     lockedBy: example.status === 'locked' ? creator._id : null,
     lockedAt: example.status === 'locked' ? new Date() : null,
