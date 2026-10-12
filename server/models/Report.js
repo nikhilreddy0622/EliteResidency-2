@@ -25,6 +25,12 @@ const reportSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  invoiceType: {
+    type: String,
+    enum: ['gst', 'gst_returnable', 'non_gst'],
+    default: 'gst',
+    required: true
+  },
   invoiceDate: {
     type: Date,
     required: [true, 'Invoice date is required'],
@@ -100,7 +106,7 @@ const reportSchema = new mongoose.Schema({
   // Status & Locking
   status: {
     type: String,
-    enum: ['draft', 'finalized', 'locked'],
+    enum: ['draft', 'locked'],
     default: 'draft'
   },
   isLocked: {

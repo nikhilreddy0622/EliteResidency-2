@@ -9,8 +9,7 @@ import {
   ArrowLeft,
   Printer,
   Edit2,
-  Lock,
-  Unlock
+  Lock
 } from 'lucide-react';
 
 export default function ReportDetail() {
@@ -44,14 +43,13 @@ export default function ReportDetail() {
   };
 
   const handleToggleLock = async () => {
-    const action = report.status === 'locked' ? 'unlock' : 'lock';
-    if (window.confirm(`Are you sure you want to ${action} this invoice?`)) {
+    if (window.confirm('Lock this invoice? It cannot be changed after confirmation.')) {
       try {
-        await reportAPI.lock(report._id, report.status !== 'locked');
-        toast.success(`Invoice ${action}ed successfully`);
+        await reportAPI.lock(report._id, true);
+        toast.success('Invoice locked successfully');
         fetchReport(); // Refresh data
       } catch (err) {
-        toast.error(err.response?.data?.message || `Failed to ${action} invoice`);
+        toast.error(err.response?.data?.message || 'Failed to lock invoice');
       }
     }
   };
@@ -67,7 +65,9 @@ export default function ReportDetail() {
 
   if (!report) return null;
 
-  const isEditable = (user?.role === 'admin' || user?.role === 'logger') && report.status !== 'locked';
+  const isOwner = report.createdBy?._id === user?._id || report.createdBy === user?._id;
+  const isEditable = user?.role === 'admin' || (report.status === 'draft' && user?.role === 'logger' && isOwner);
+  const canLock = report.status === 'draft' && (user?.role === 'admin' || (user?.role === 'logger' && isOwner));
 
   return (
     <div className="fade-in">
@@ -100,16 +100,12 @@ export default function ReportDetail() {
               </Link>
             )}
 
-            {user?.role === 'admin' && (
+            {canLock && (
               <button 
-                className={`btn ${report.status === 'locked' ? 'btn-warning' : 'btn-danger'}`}
+                className="btn btn-warning"
                 onClick={handleToggleLock}
               >
-                {report.status === 'locked' ? (
-                  <><Unlock size={16} /> Unlock</>
-                ) : (
-                  <><Lock size={16} /> Lock</>
-                )}
+                <><Lock size={16} /> Lock invoice</>
               </button>
             )}
           </div>
@@ -196,7 +192,7 @@ export default function ReportDetail() {
               <div style={{ paddingLeft: '40px' }}>{report.partyDetails?.state} State, Pin Code: {report.partyDetails?.stateCode}, Phone: {report.partyDetails?.phone}</div>
               <div style={{ marginTop: 'auto' }}>
                 <div>HSN CODE : {report.lineItems?.[0]?.hsnCode || ''}</div>
-                <div>PARTY GSTIN: {report.partyDetails?.gstin}</div>
+                <div>PARTY GSTIN: {report.invoiceType === 'non_gst' ? 'NILL' : (report.partyDetails?.gstin || 'NILL')}</div>
                 <div>PAN NO : {report.partyDetails?.panNo || (report.partyDetails?.gstin ? report.partyDetails.gstin.substring(2, 12) : '')}</div>
               </div>
             </div>
@@ -256,6 +252,11 @@ export default function ReportDetail() {
           </table>
 
           {/* Tax Breakdown */}
+          {report.invoiceType === 'gst_returnable' && (
+            <div style={{ padding: '4px 8px', border: '1px solid black', borderBottom: 'none', fontWeight: 'bold' }}>
+              TAX HAS TO BE PAID UNDER REVERSE CHARGE
+            </div>
+          )}
           <div style={{ display: 'flex', border: '1px solid black', borderBottom: 'none', borderTop: 'none', fontWeight: 'bold' }}>
             <div style={{ width: '50%', borderRight: '1px solid black' }}></div>
             <div style={{ width: '50%' }}>

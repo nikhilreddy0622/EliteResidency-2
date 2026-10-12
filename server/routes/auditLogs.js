@@ -1,5 +1,6 @@
 const express = require('express');
 const AuditLog = require('../models/AuditLog');
+const Report = require('../models/Report');
 const { protect } = require('../middleware/auth');
 
 const router = express.Router();
@@ -24,7 +25,19 @@ router.get('/', protect, async (req, res) => {
 
     const query = {};
 
-    if (reportId) query.reportId = reportId;
+    let ownReportIds = null;
+    if (req.user.role === 'logger') {
+      const ownReports = await Report.find({ createdBy: req.user._id }).select('_id');
+      ownReportIds = ownReports.map((report) => report._id.toString());
+      query.reportId = { $in: ownReports.map((report) => report._id) };
+    }
+
+    if (reportId) {
+      if (ownReportIds && !ownReportIds.includes(reportId)) {
+        return res.status(403).json({ success: false, message: 'Not authorized to view this invoice history' });
+      }
+      query.reportId = reportId;
+    }
     if (action) query.action = action;
     if (performedBy) query.performedBy = performedBy;
     if (invoiceNumber) {
@@ -66,6 +79,10 @@ router.get('/', protect, async (req, res) => {
 // @access  Private
 router.get('/report/:reportId', protect, async (req, res) => {
   try {
+    if (req.user.role === 'logger') {
+      const report = await Report.findOne({ _id: req.params.reportId, createdBy: req.user._id });
+      if (!report) return res.status(403).json({ success: false, message: 'Not authorized to view this invoice history' });
+    }
     const logs = await AuditLog.find({ reportId: req.params.reportId })
       .populate('performedBy', 'name email role')
       .sort({ createdAt: -1 });
@@ -86,6 +103,10 @@ router.get('/:id', protect, async (req, res) => {
 
     if (!log) {
       return res.status(404).json({ success: false, message: 'Audit log not found' });
+    }
+    if (req.user.role === 'logger') {
+      const report = await Report.findOne({ _id: log.reportId, createdBy: req.user._id });
+      if (!report) return res.status(403).json({ success: false, message: 'Not authorized to view this audit log' });
     }
 
     res.json({ success: true, data: log });

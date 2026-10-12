@@ -7,8 +7,20 @@ require('dotenv').config();
 const authRoutes = require('./routes/auth');
 const reportRoutes = require('./routes/reports');
 const auditLogRoutes = require('./routes/auditLogs');
+const customerRoutes = require('./routes/customers');
+const { seedCustomers } = require('./seedCustomers');
+const Report = require('./models/Report');
 
 const app = express();
+
+const normalizeLegacyInvoices = async () => {
+  // Legacy "finalized" documents are equivalent to confirmed invoices and are
+  // migrated once to the new immutable locked state without touching their IDs.
+  await Report.updateMany(
+    { status: 'finalized' },
+    { $set: { status: 'locked', isLocked: true } }
+  );
+};
 
 // Middleware
 app.use(cors());
@@ -19,6 +31,7 @@ app.use(morgan('dev'));
 app.use('/api/auth', authRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/audit-logs', auditLogRoutes);
+app.use('/api/customers', customerRoutes);
 
 // Root & Health check
 app.get('/', (req, res) => {
@@ -39,17 +52,21 @@ app.use((err, req, res, next) => {
   });
 });
 
-const { MongoMemoryServer } = require('mongodb-memory-server');
+const { MongoMemoryReplSet } = require('mongodb-memory-server');
 const startServer = async () => {
   const PORT = process.env.PORT || 5000;
   try {
     await mongoose.connect(process.env.MONGODB_URI, { serverSelectionTimeoutMS: 10000 });
+    await normalizeLegacyInvoices();
+    await seedCustomers();
     console.log('✅ MongoDB connected successfully (Compass-compatible at mongodb://localhost:27017/elite-residency)');
   } catch (err) {
     console.warn('⚠️ Local MongoDB not found, falling back to in-memory database...');
-    const mongoServer = await MongoMemoryServer.create();
+    const mongoServer = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
     const mongoUri = mongoServer.getUri();
     await mongoose.connect(mongoUri);
+    await normalizeLegacyInvoices();
+    await seedCustomers();
     console.log(`✅ MongoDB Memory Server connected at ${mongoUri}`);
     
     // Seed database since it's a fresh in-memory instance

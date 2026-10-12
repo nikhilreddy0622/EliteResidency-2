@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { reportAPI } from '../api';
+import { authAPI, reportAPI } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
@@ -12,7 +12,6 @@ import {
   Edit2,
   Trash2,
   Lock,
-  Unlock,
   FileText
 } from 'lucide-react';
 
@@ -28,10 +27,19 @@ export default function Reports() {
   const [endDate, setEndDate] = useState('');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const [loggerId, setLoggerId] = useState('');
+  const [loggers, setLoggers] = useState([]);
 
   useEffect(() => {
     fetchReports();
-  }, [page, status, startDate, endDate]);
+  }, [page, status, startDate, endDate, loggerId]);
+
+  useEffect(() => {
+    if (user?.role !== 'admin') return;
+    authAPI.getUsers().then(({ data }) => setLoggers(data.data.filter((account) => account.role === 'logger'))).catch(() => {
+      toast.error('Failed to load logger list');
+    });
+  }, [user?.role]);
 
   const fetchReports = async () => {
     setLoading(true);
@@ -41,6 +49,7 @@ export default function Reports() {
       if (startDate) params.startDate = startDate;
       if (endDate) params.endDate = endDate;
       if (search) params.search = search;
+      if (loggerId && user?.role === 'admin') params.loggerId = loggerId;
 
       const { data } = await reportAPI.getAll(params);
       setReports(data.data);
@@ -63,6 +72,7 @@ export default function Reports() {
     setStartDate('');
     setEndDate('');
     setSearch('');
+    setLoggerId('');
     setPage(1);
     setTimeout(fetchReports, 0);
   };
@@ -80,14 +90,13 @@ export default function Reports() {
   };
 
   const handleToggleLock = async (report) => {
-    const action = report.status === 'locked' ? 'unlock' : 'lock';
-    if (window.confirm(`Are you sure you want to ${action} this invoice?`)) {
+    if (window.confirm('Lock this invoice? It cannot be changed after confirmation.')) {
       try {
-        await reportAPI.lock(report._id, report.status !== 'locked');
-        toast.success(`Invoice ${action}ed successfully`);
+        await reportAPI.lock(report._id, true);
+        toast.success('Invoice locked successfully');
         fetchReports();
       } catch (err) {
-        toast.error(err.response?.data?.message || `Failed to ${action} invoice`);
+        toast.error(err.response?.data?.message || 'Failed to lock invoice');
       }
     }
   };
@@ -131,10 +140,15 @@ export default function Reports() {
           <select className="form-select" value={status} onChange={(e) => setStatus(e.target.value)}>
             <option value="">All Statuses</option>
             <option value="draft">Draft</option>
-            <option value="finalized">Finalized</option>
             <option value="locked">Locked</option>
           </select>
         </div>
+        {user?.role === 'admin' && <div className="filter-item" style={{ minWidth: '180px' }}>
+          <select className="form-select" value={loggerId} onChange={(e) => setLoggerId(e.target.value)}>
+            <option value="">All loggers</option>
+            {loggers.map((logger) => <option key={logger._id} value={logger._id}>{logger.name}</option>)}
+          </select>
+        </div>}
         <div className="filter-item">
           <input type="date" className="form-input" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
         </div>
@@ -215,22 +229,25 @@ export default function Reports() {
                           <Eye size={16} />
                         </Link>
                         
-                        {(user?.role === 'admin' || user?.role === 'logger') && report.status !== 'locked' && (
+                        {(user?.role === 'admin' || (user?.role === 'logger' && report.createdBy?._id === user._id && report.status === 'draft')) && (
                           <Link to={`/reports/${report._id}/edit`} className="btn btn-ghost btn-icon btn-sm" title="Edit">
                             <Edit2 size={16} />
                           </Link>
                         )}
 
-                        {user?.role === 'admin' && (
+                        {(user?.role === 'admin' || (user?.role === 'logger' && report.createdBy?._id === user._id)) && report.status === 'draft' && (
                           <>
                             <button
-                              className={`btn btn-ghost btn-icon btn-sm ${report.status === 'locked' ? 'text-warning' : 'text-danger'}`}
+                              className="btn btn-ghost btn-icon btn-sm text-warning"
                               onClick={() => handleToggleLock(report)}
-                              title={report.status === 'locked' ? 'Unlock Invoice' : 'Lock Invoice'}
+                              title="Lock invoice"
                             >
-                              {report.status === 'locked' ? <Unlock size={16} /> : <Lock size={16} />}
+                              <Lock size={16} />
                             </button>
-                            
+                          </>
+                        )}
+                        {user?.role === 'admin' && (
+                          <>
                             <button
                               className="btn btn-ghost btn-icon btn-sm text-danger"
                               onClick={() => handleDelete(report._id)}

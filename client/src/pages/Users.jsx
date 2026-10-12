@@ -174,7 +174,7 @@ export default function Users() {
                     </select>
                   </td>
                   <td>
-                    <span className={`badge ${u.isActive ? 'badge-finalized' : 'badge-locked'}`}>
+                    <span className={`badge ${u.isActive ? 'badge-created' : 'badge-locked'}`}>
                       {u.isActive ? 'Active' : 'Locked'}
                     </span>
                   </td>

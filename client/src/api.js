@@ -53,4 +53,9 @@ export const auditAPI = {
   getById: (id) => API.get(`/audit-logs/${id}`)
 };
 
+export const customerAPI = {
+  getAll: (search = '') => API.get('/customers', { params: search ? { search } : {} }),
+  save: (data) => API.post('/customers', data)
+};
+
 export default API;

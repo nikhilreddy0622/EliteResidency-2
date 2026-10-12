@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { reportAPI } from '../api';
+import { customerAPI, reportAPI } from '../api';
+import { useAuth } from '../context/AuthContext';
 import { toast } from 'react-toastify';
 import { toWords } from 'number-to-words';
 import {
@@ -37,13 +38,16 @@ export default function ReportForm() {
   const { id } = useParams();
   const navigate = useNavigate();
   const isEdit = Boolean(id);
+  const { user } = useAuth();
 
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(isEdit);
+  const [customers, setCustomers] = useState([]);
 
   // Form State
   const [formData, setFormData] = useState({
     invoiceDate: new Date().toISOString().split('T')[0],
+    invoiceType: 'gst',
     poNumber: '',
     vehicleNo: '',
     status: 'draft',
@@ -70,12 +74,18 @@ export default function ReportForm() {
     if (isEdit) {
       fetchReport();
     }
-  }, [id]);
+  }, [id, user?.role]);
+
+  useEffect(() => {
+    customerAPI.getAll().then(({ data }) => setCustomers(data.data)).catch(() => {
+      toast.error('Saved customer details could not be loaded');
+    });
+  }, []);
 
   const fetchReport = async () => {
     try {
       const { data } = await reportAPI.getById(id);
-      if (data.data.status === 'locked') {
+      if (data.data.status === 'locked' && user?.role !== 'admin') {
         toast.error('This invoice is locked and cannot be edited');
         navigate(`/reports/${id}`);
         return;
@@ -89,6 +99,7 @@ export default function ReportForm() {
         panNo: fetchedData.companyDetails?.panNo || fetchedData.companyDetails?.pan || initialCompanyDetails.panNo
       };
       fetchedData.partyDetails = { ...initialPartyDetails, ...(fetchedData.partyDetails || {}) };
+      fetchedData.invoiceType = fetchedData.invoiceType || 'gst';
       
       // Format date for input
       if (fetchedData.invoiceDate) {
@@ -129,7 +140,9 @@ export default function ReportForm() {
     const sgstAmount = (totalAmount * (parseFloat(data.taxDetails.sgstRate) || 0)) / 100;
     const igstAmount = (totalAmount * (parseFloat(data.taxDetails.igstRate) || 0)) / 100;
 
-    const grandTotal = Math.round(totalAmount + cgstAmount + sgstAmount + igstAmount);
+    const grandTotal = data.invoiceType === 'gst_returnable'
+      ? totalAmount
+      : Math.round((totalAmount + cgstAmount + sgstAmount + igstAmount) * 100) / 100;
 
     // Amount in words
     let amountInWords = '';
@@ -183,6 +196,32 @@ export default function ReportForm() {
     const newLineItems = [...formData.lineItems];
     newLineItems[index][field] = value;
     calculateTotals({ ...formData, lineItems: newLineItems });
+  };
+
+  const handleCustomerSelect = (customerId) => {
+    const customer = customers.find((item) => item._id === customerId);
+    if (!customer) return;
+    setFormData((previous) => ({
+      ...previous,
+      partyDetails: {
+        ...previous.partyDetails,
+        name: customer.name || '',
+        address: customer.address || '',
+        gstin: customer.gstin || '',
+        panNo: customer.panNo || '',
+        state: customer.state || '',
+        stateCode: customer.stateCode || '',
+        phone: customer.phone || ''
+      },
+      lineItems: previous.lineItems.map((item, index) => index === 0 && !item.hsnCode
+        ? { ...item, hsnCode: customer.hsnCode || '' }
+        : item)
+    }));
+  };
+
+  const handleInvoiceTypeChange = (invoiceType) => {
+    const rates = invoiceType === 'gst' ? { cgstRate: 9, sgstRate: 9, igstRate: 0 } : { cgstRate: 2.5, sgstRate: 2.5, igstRate: 0 };
+    calculateTotals({ ...formData, invoiceType, taxDetails: { ...formData.taxDetails, ...rates } });
   };
 
   const addLineItem = () => {
@@ -298,8 +337,19 @@ export default function ReportForm() {
                 className="form-input"
                 value={formData.invoiceDate}
                 onChange={(e) => handleChange(null, 'invoiceDate', e.target.value)}
+                readOnly={user?.role === 'logger'}
                 required
               />
+              {user?.role === 'logger' && <small className="form-hint">Invoice dates are managed by an admin.</small>}
+            </div>
+            <div className="form-group">
+              <label className="form-label">Invoice Type</label>
+              <select className="form-select" value={formData.invoiceType} onChange={(e) => handleInvoiceTypeChange(e.target.value)}>
+                <option value="gst">GST Invoice — CGST 9% + SGST 9%</option>
+                <option value="gst_returnable">GST Invoice — Tax Returnable (2.5% + 2.5%)</option>
+                <option value="non_gst">Non-GST Invoice — CGST 2.5% + SGST 2.5%</option>
+              </select>
+              <small className="form-hint">{formData.invoiceType === 'gst_returnable' ? 'Tax is displayed separately and is not added to the total, matching the supplied template.' : 'Tax is calculated from the selected template.'}</small>
             </div>
             <div className="form-group">
               <label className="form-label">PO Number (Optional)</label>
@@ -331,25 +381,21 @@ export default function ReportForm() {
                 onChange={(e) => handleChange(null, 'deliveryChallanNo', e.target.value)}
               />
             </div>
-            {!isEdit && (
-              <div className="form-group">
-                <label className="form-label">Status</label>
-                <select
-                  className="form-select"
-                  value={formData.status}
-                  onChange={(e) => handleChange(null, 'status', e.target.value)}
-                >
-                  <option value="draft">Draft (Can edit later)</option>
-                  <option value="finalized">Finalized (Ready for print)</option>
-                </select>
-              </div>
-            )}
+            <div className="form-hint">New invoices are saved as drafts. Confirming an invoice locks it permanently.</div>
           </div>
 
           {/* Billed To / Party Details */}
           <div className="card">
             <div className="card-header">
               <h3>Billed To (Party Details)</h3>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Add Details — Saved Customer</label>
+              <select className="form-select" defaultValue="" onChange={(e) => handleCustomerSelect(e.target.value)}>
+                <option value="">Select saved customer or enter details below</option>
+                {customers.map((customer) => <option value={customer._id} key={customer._id}>{customer.name}{customer.gstin ? ` — ${customer.gstin}` : ''}</option>)}
+              </select>
+              <small className="form-hint">Customer details are saved automatically after the invoice is created or updated.</small>
             </div>
             <div className="form-group">
               <label className="form-label">Party Name</label>
@@ -374,7 +420,7 @@ export default function ReportForm() {
               />
             </div>
             <div className="form-row">
-              <div className="form-group">
+              {formData.invoiceType !== 'non_gst' && <div className="form-group">
                 <label className="form-label">GSTIN</label>
                 <input
                   type="text"
@@ -383,7 +429,7 @@ export default function ReportForm() {
                   value={formData.partyDetails.gstin}
                   onChange={(e) => handleChange('partyDetails', 'gstin', e.target.value)}
                 />
-              </div>
+              </div>}
               <div className="form-group">
                 <label className="form-label">State</label>
                 <input
@@ -567,7 +613,7 @@ export default function ReportForm() {
               </h3>
             </div>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>
-              Adjust the applicable tax rates. Leave at 0 if not applicable.
+              Tax rates are selected automatically from the invoice template.
             </p>
             <div className="form-row">
               <div className="form-group">
@@ -576,9 +622,7 @@ export default function ReportForm() {
                   type="number"
                   className="form-input"
                   value={formData.taxDetails.cgstRate}
-                  onChange={(e) => handleChange('taxDetails', 'cgstRate', e.target.value)}
-                  min="0"
-                  step="0.1"
+                  readOnly
                 />
               </div>
               <div className="form-group">
@@ -587,9 +631,7 @@ export default function ReportForm() {
                   type="number"
                   className="form-input"
                   value={formData.taxDetails.sgstRate}
-                  onChange={(e) => handleChange('taxDetails', 'sgstRate', e.target.value)}
-                  min="0"
-                  step="0.1"
+                  readOnly
                 />
               </div>
             </div>
@@ -599,9 +641,7 @@ export default function ReportForm() {
                 type="number"
                 className="form-input"
                 value={formData.taxDetails.igstRate}
-                onChange={(e) => handleChange('taxDetails', 'igstRate', e.target.value)}
-                min="0"
-                step="0.1"
+                readOnly
               />
             </div>
           </div>

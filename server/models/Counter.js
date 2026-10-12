@@ -7,11 +7,18 @@ const counterSchema = new mongoose.Schema({
   seq: { type: Number, default: 0 }
 });
 
-counterSchema.statics.getNextSequence = async function(financialYear) {
+counterSchema.statics.getNextSequence = async function(financialYear, session = null) {
+  // A single atomic document is shared by every financial year.  The update
+  // pipeline also moves legacy counters below 100 to the agreed starting point.
   const counter = await this.findOneAndUpdate(
-    { _id: 'invoiceNumber', financialYear },
-    { $inc: { seq: 1 } },
-    { new: true, upsert: true }
+    { _id: 'invoiceNumber' },
+    [{
+      $set: {
+        financialYear,
+        seq: { $add: [{ $max: [{ $ifNull: ['$seq', 100] }, 100] }, 1] }
+      }
+    }],
+    { new: true, upsert: true, setDefaultsOnInsert: false, session }
   );
   return counter.seq;
 };

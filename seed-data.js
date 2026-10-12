@@ -28,8 +28,8 @@ const reportsData = [
     amountInWords: 'FIFTY NINE THOUSAND RUPEES ONLY'
   },
   {
-    status: 'finalized',
-    isLocked: false,
+    status: 'locked',
+    isLocked: true,
     partyDetails: { name: 'Tata Consultancy', address: 'Pune, MH', gstin: '27AAACT1111A1Z1', state: 'Maharashtra', stateCode: '27', phone: '8877665544' },
     lineItems: [
       { sno: 1, description: 'Software License', quantity: 5, rate: 10000, amount: 50000, hsnCode: '9973' },
@@ -57,8 +57,8 @@ const reportsData = [
     amountInWords: 'ONE LAKH FORTY ONE THOUSAND SIX HUNDRED RUPEES ONLY'
   },
   {
-    status: 'finalized',
-    isLocked: false,
+    status: 'locked',
+    isLocked: true,
     partyDetails: { name: 'Infosys Ltd', address: 'Bangalore, KA', gstin: '29AAACI1111A1Z1', state: 'Karnataka', stateCode: '29', phone: '9999988888' },
     lineItems: [
       { sno: 1, description: 'Server Hardware', quantity: 2, rate: 150000, amount: 300000, hsnCode: '8471' }
@@ -161,7 +161,7 @@ async function seed() {
         await AuditLog.create({
           reportId: newReport._id,
           invoiceNumber,
-          action: data.status === 'locked' ? 'locked' : 'status_changed',
+          action: 'locked',
           performedBy: adminUser._id,
           version: 1,
           changes: [{ field: 'status', oldValue: 'draft', newValue: data.status }],

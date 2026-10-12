@@ -13,7 +13,7 @@ import {
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const [stats, setStats] = useState({ total: 0, finalized: 0, locked: 0, totalAmount: 0 });
+  const [stats, setStats] = useState({ total: 0, draft: 0, locked: 0, totalAmount: 0 });
   const [recentReports, setRecentReports] = useState([]);
   const [recentLogs, setRecentLogs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -35,7 +35,7 @@ export default function Dashboard() {
 
       setStats({
         total: totals.totalReports || 0,
-        finalized: totals.finalizedReports || 0,
+        draft: totals.draftReports || 0,
         locked: totals.lockedReports || 0,
         totalAmount: totals.totalRevenue || 0
       });
@@ -88,8 +88,8 @@ export default function Dashboard() {
               <Activity size={24} strokeWidth={1.5} />
             </div>
             <div className="stat-content">
-              <div className="stat-value">{stats.finalized}</div>
-              <div className="stat-label">Finalized</div>
+              <div className="stat-value">{stats.draft}</div>
+              <div className="stat-label">Drafts</div>
             </div>
           </div>
           <div className="stat-card">
