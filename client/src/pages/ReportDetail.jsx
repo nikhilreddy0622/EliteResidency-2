@@ -253,8 +253,21 @@ export default function ReportDetail() {
 
           {/* Tax Breakdown */}
           <div className="invoice-tax-area" style={{ display: 'flex', border: '1px solid black', borderBottom: 'none', borderTop: 'none', fontWeight: 'bold' }}>
-            <div className={`invoice-tax-note ${report.invoiceType === 'gst_returnable' ? 'is-reverse-charge' : ''}`} style={{ width: '50%', borderRight: '1px solid black' }}>
-              {report.invoiceType === 'gst_returnable' && 'TAX HAS TO BE PAID UNDER REVERSE CHARGE'}
+            <div
+              className={`invoice-tax-note ${report.invoiceType === 'gst_returnable' ? 'is-reverse-charge' : ''}`}
+              style={{
+                width: '50%',
+                borderRight: '1px solid black',
+                color: report.invoiceType === 'gst_returnable' ? '#d60000' : undefined,
+                fontSize: report.invoiceType === 'gst_returnable' ? '16px' : undefined,
+                fontWeight: report.invoiceType === 'gst_returnable' ? 800 : undefined,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                textAlign: 'center'
+              }}
+            >
+              {report.invoiceType === 'gst_returnable' && '"TAX HAS TO PAID UNDER REVERSE CHARGE"'}
             </div>
             <div className="invoice-tax-summary" style={{ width: '50%' }}>
               <div style={{ display: 'flex', borderBottom: '1px solid black' }}>

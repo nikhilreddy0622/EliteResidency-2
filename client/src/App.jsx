@@ -46,6 +46,18 @@ function LoggerOrAdminRoute({ children }) {
   );
 }
 
+function LoggerRoute({ children }) {
+  const { user } = useAuth();
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role !== 'logger') return <Navigate to="/" replace />;
+  return (
+    <div className="app-layout">
+      <Sidebar />
+      <main className="main-content">{children}</main>
+    </div>
+  );
+}
+
 function PublicRoute({ children }) {
   const { user } = useAuth();
   if (user) return <Navigate to="/" replace />;
@@ -58,6 +70,7 @@ function AppRoutes() {
       <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
       <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
       <Route path="/reports" element={<PrivateRoute><Reports /></PrivateRoute>} />
+      <Route path="/my-invoices" element={<LoggerRoute><Reports mineOnly /></LoggerRoute>} />
       <Route path="/reports/new" element={<LoggerOrAdminRoute><ReportForm /></LoggerOrAdminRoute>} />
       <Route path="/reports/:id" element={<PrivateRoute><ReportDetail /></PrivateRoute>} />
       <Route path="/reports/:id/edit" element={<LoggerOrAdminRoute><ReportForm /></LoggerOrAdminRoute>} />

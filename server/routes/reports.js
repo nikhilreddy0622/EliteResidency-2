@@ -143,6 +143,7 @@ router.get('/', protect, async (req, res) => {
       endDate,
       partyName,
       loggerId,
+      mine,
       sortBy = 'createdAt',
       sortOrder = 'desc'
     } = req.query;
@@ -150,8 +151,10 @@ router.get('/', protect, async (req, res) => {
     const query = {};
 
     // All authenticated users may view invoices. Editing and locking ownership
-    // checks are enforced separately below; admins can filter by logger.
+    // checks are enforced separately below; admins can filter by logger. A
+    // logger can also request their own invoice history explicitly.
     if (req.user.role === 'admin' && loggerId) query.createdBy = loggerId;
+    if (req.user.role === 'logger' && mine === 'true') query.createdBy = req.user._id;
 
     // Search by invoice number or party name
     if (search) {

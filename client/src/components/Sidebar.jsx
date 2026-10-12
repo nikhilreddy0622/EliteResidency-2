@@ -4,6 +4,7 @@ import {
   LayoutDashboard,
   FileText,
   ClipboardList,
+  ListChecks,
   Users,
   LogOut,
   Menu,
@@ -21,6 +22,10 @@ export default function Sidebar() {
     { to: '/reports', icon: <FileText size={20} strokeWidth={1.5} />, label: 'Reports / Invoices' },
     { to: '/audit-logs', icon: <ClipboardList size={20} strokeWidth={1.5} />, label: 'Audit Logs' },
   ];
+
+  if (user?.role === 'logger') {
+    navItems.splice(2, 0, { to: '/my-invoices', icon: <ListChecks size={20} strokeWidth={1.5} />, label: 'My Invoices' });
+  }
 
   if (user?.role === 'admin') {
     navItems.push({ to: '/users', icon: <Users size={20} strokeWidth={1.5} />, label: 'User Management' });

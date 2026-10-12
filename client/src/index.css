@@ -1301,7 +1301,7 @@ tbody tr:hover {
 .invoice-items td, .invoice-items th { line-height: 1.14; }
 .invoice-total-row td { padding-block: 7px !important; }
 .invoice-tax-area { min-height: 122px; }
-.invoice-tax-note { padding: 10px; min-height: 122px; display: flex; align-items: flex-start; }
+.invoice-tax-note { padding: 10px; min-height: 122px; display: flex; align-items: center; justify-content: center; text-align: center; }
 .invoice-tax-note.is-reverse-charge { color: #d60000; font-size: 16px; font-weight: 800; line-height: 1.2; }
 .invoice-tax-summary { font-size: 14px; }
 .invoice-tax-summary > div { min-height: 25px; align-items: center; }

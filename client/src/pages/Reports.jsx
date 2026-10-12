@@ -15,7 +15,7 @@ import {
   FileText
 } from 'lucide-react';
 
-export default function Reports() {
+export default function Reports({ mineOnly = false }) {
   const { user } = useAuth();
   const [reports, setReports] = useState([]);
   const [pagination, setPagination] = useState({});
@@ -32,7 +32,7 @@ export default function Reports() {
 
   useEffect(() => {
     fetchReports();
-  }, [page, status, startDate, endDate, loggerId]);
+  }, [page, status, startDate, endDate, loggerId, mineOnly]);
 
   useEffect(() => {
     if (user?.role !== 'admin') return;
@@ -50,6 +50,7 @@ export default function Reports() {
       if (endDate) params.endDate = endDate;
       if (search) params.search = search;
       if (loggerId && user?.role === 'admin') params.loggerId = loggerId;
+      if (mineOnly && user?.role === 'logger') params.mine = 'true';
 
       const { data } = await reportAPI.getAll(params);
       setReports(data.data);
@@ -114,8 +115,8 @@ export default function Reports() {
       <div className="page-header">
         <div className="page-header-row">
           <div>
-            <h2>Invoices & Reports</h2>
-            <p>Manage, track, and generate invoices</p>
+            <h2>{mineOnly ? 'My Invoices' : 'Invoices & Reports'}</h2>
+            <p>{mineOnly ? 'View and manage invoices you created' : 'Manage, track, and generate invoices'}</p>
           </div>
           {(user?.role === 'admin' || user?.role === 'logger') && (
             <Link to="/reports/new" className="btn btn-primary">
@@ -145,7 +146,7 @@ export default function Reports() {
         </div>
         {user?.role === 'admin' && <div className="filter-item" style={{ minWidth: '180px' }}>
           <select className="form-select" value={loggerId} onChange={(e) => setLoggerId(e.target.value)}>
-            <option value="">All loggers</option>
+            <option value="">All logger accounts</option>
             {loggers.map((logger) => <option key={logger._id} value={logger._id}>{logger.name}</option>)}
           </select>
         </div>}
@@ -196,6 +197,7 @@ export default function Reports() {
                   <th>Invoice #</th>
                   <th>Date</th>
                   <th>Party Name</th>
+                  {user?.role === 'admin' && <th>Created By</th>}
                   <th>Vehicle No</th>
                   <th>Amount</th>
                   <th>Status</th>
@@ -216,6 +218,7 @@ export default function Reports() {
                     <td style={{ fontWeight: 500, color: 'var(--text-primary)' }}>
                       {report.partyDetails?.name || '-'}
                     </td>
+                    {user?.role === 'admin' && <td>{report.createdBy?.name || 'Unknown'}</td>}
                     <td>{report.vehicleNo || '-'}</td>
                     <td style={{ fontWeight: 600 }}>{formatCurrency(report.totalAmount)}</td>
                     <td>
