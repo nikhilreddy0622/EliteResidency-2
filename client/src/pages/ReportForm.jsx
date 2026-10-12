@@ -9,7 +9,9 @@ import {
   ArrowLeft,
   Plus,
   Trash2,
-  Calculator
+  Calculator,
+  Settings,
+  X
 } from 'lucide-react';
 
 const initialCompanyDetails = {
@@ -43,6 +45,10 @@ export default function ReportForm() {
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(isEdit);
   const [customers, setCustomers] = useState([]);
+  const [showCustomerModal, setShowCustomerModal] = useState(false);
+  const [savingCustomer, setSavingCustomer] = useState(false);
+  const [editingCustomerId, setEditingCustomerId] = useState(null);
+  const [customerDraft, setCustomerDraft] = useState({ ...initialPartyDetails, hsnCode: '' });
 
   // Form State
   const [formData, setFormData] = useState({
@@ -219,6 +225,58 @@ export default function ReportForm() {
     }));
   };
 
+  const openCustomerModal = () => {
+    const selectedCustomer = customers.find((item) => item.name === formData.partyDetails.name && item.gstin === formData.partyDetails.gstin);
+    setEditingCustomerId(selectedCustomer?._id || null);
+    setCustomerDraft({
+      ...initialPartyDetails,
+      ...(selectedCustomer || formData.partyDetails),
+      hsnCode: selectedCustomer?.hsnCode || formData.lineItems?.[0]?.hsnCode || ''
+    });
+    setShowCustomerModal(true);
+  };
+
+  const saveCustomer = async (event) => {
+    event.preventDefault();
+    if (!customerDraft.name.trim()) {
+      toast.error('Customer name is required');
+      return;
+    }
+    setSavingCustomer(true);
+    try {
+      const request = editingCustomerId
+        ? customerAPI.update(editingCustomerId, customerDraft)
+        : customerAPI.save(customerDraft);
+      const { data } = await request;
+      const savedCustomer = data.data;
+      setCustomers((previous) => {
+        const remaining = previous.filter((customer) => customer._id !== savedCustomer._id);
+        return [...remaining, savedCustomer].sort((a, b) => a.name.localeCompare(b.name));
+      });
+      handleCustomerSelect(savedCustomer._id);
+      // handleCustomerSelect uses the previous list during this render; populate
+      // directly as well so the saved record applies immediately.
+      setFormData((previous) => ({
+        ...previous,
+        partyDetails: {
+          ...previous.partyDetails,
+          name: savedCustomer.name || '', address: savedCustomer.address || '', gstin: savedCustomer.gstin || '',
+          panNo: savedCustomer.panNo || '', state: savedCustomer.state || '',
+          stateCode: savedCustomer.stateCode || '', phone: savedCustomer.phone || ''
+        },
+        lineItems: previous.lineItems.map((item, index) => index === 0 && !item.hsnCode
+          ? { ...item, hsnCode: savedCustomer.hsnCode || '' }
+          : item)
+      }));
+      toast.success(editingCustomerId ? 'Saved customer details updated' : 'Customer details saved');
+      setShowCustomerModal(false);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to save customer details');
+    } finally {
+      setSavingCustomer(false);
+    }
+  };
+
   const handleInvoiceTypeChange = (invoiceType) => {
     const rates = invoiceType === 'gst' ? { cgstRate: 9, sgstRate: 9, igstRate: 0 } : { cgstRate: 2.5, sgstRate: 2.5, igstRate: 0 };
     calculateTotals({ ...formData, invoiceType, taxDetails: { ...formData.taxDetails, ...rates } });
@@ -390,12 +448,17 @@ export default function ReportForm() {
               <h3>Billed To (Party Details)</h3>
             </div>
             <div className="form-group">
-              <label className="form-label">Add Details — Saved Customer</label>
-              <select className="form-select" defaultValue="" onChange={(e) => handleCustomerSelect(e.target.value)}>
-                <option value="">Select saved customer or enter details below</option>
-                {customers.map((customer) => <option value={customer._id} key={customer._id}>{customer.name}{customer.gstin ? ` — ${customer.gstin}` : ''}</option>)}
-              </select>
-              <small className="form-hint">Customer details are saved automatically after the invoice is created or updated.</small>
+              <label className="form-label">Saved Customer</label>
+              <div className="customer-picker">
+                <select className="form-select" defaultValue="" onChange={(e) => handleCustomerSelect(e.target.value)}>
+                  <option value="">Select saved customer or enter details below</option>
+                  {customers.map((customer) => <option value={customer._id} key={customer._id}>{customer.name}{customer.gstin ? ` — ${customer.gstin}` : ''}</option>)}
+                </select>
+                <button type="button" className="btn btn-outline customer-manage-button" onClick={openCustomerModal}>
+                  <Settings size={16} /> Add / Manage
+                </button>
+              </div>
+              <small className="form-hint">Create a new customer or update the selected details for future invoices.</small>
             </div>
             <div className="form-group">
               <label className="form-label">Party Name</label>
@@ -579,6 +642,7 @@ export default function ReportForm() {
                         step="0.01"
                         required
                       />
+                      <small className="form-hint">Enter rate manually</small>
                     </td>
                     <td data-label="Amount (₹)" style={{ padding: '8px' }}>
                       <div className="form-input" style={{ background: 'var(--bg-secondary)', color: 'var(--text-muted)' }}>
@@ -701,6 +765,49 @@ export default function ReportForm() {
         </div>
 
       </form>
+
+      {showCustomerModal && (
+        <div className="modal-overlay" onClick={() => setShowCustomerModal(false)}>
+          <div className="modal modal-lg" onClick={(event) => event.stopPropagation()}>
+            <div className="modal-header">
+              <h3>{editingCustomerId ? 'Modify Saved Customer' : 'Add New Customer Details'}</h3>
+              <button type="button" className="modal-close" onClick={() => setShowCustomerModal(false)}><X size={18} /></button>
+            </div>
+            <div className="modal-body">
+              <p className="text-muted" style={{ marginBottom: '20px' }}>These details are stored for future invoices. Existing invoices keep their original saved details.</p>
+              <form onSubmit={saveCustomer}>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label className="form-label">Customer / Party Name</label>
+                    <input className="form-input" value={customerDraft.name} onChange={(e) => setCustomerDraft({ ...customerDraft, name: e.target.value })} required />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">GSTIN (optional for non-GST)</label>
+                    <input className="form-input" value={customerDraft.gstin || ''} onChange={(e) => setCustomerDraft({ ...customerDraft, gstin: e.target.value.toUpperCase() })} />
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Address</label>
+                  <textarea className="form-textarea" rows={3} value={customerDraft.address || ''} onChange={(e) => setCustomerDraft({ ...customerDraft, address: e.target.value })} />
+                </div>
+                <div className="form-row">
+                  <div className="form-group"><label className="form-label">PAN No.</label><input className="form-input" value={customerDraft.panNo || ''} onChange={(e) => setCustomerDraft({ ...customerDraft, panNo: e.target.value.toUpperCase() })} /></div>
+                  <div className="form-group"><label className="form-label">Phone</label><input className="form-input" value={customerDraft.phone || ''} onChange={(e) => setCustomerDraft({ ...customerDraft, phone: e.target.value })} /></div>
+                </div>
+                <div className="form-row">
+                  <div className="form-group"><label className="form-label">State</label><input className="form-input" value={customerDraft.state || ''} onChange={(e) => setCustomerDraft({ ...customerDraft, state: e.target.value })} /></div>
+                  <div className="form-group"><label className="form-label">State Code</label><input className="form-input" value={customerDraft.stateCode || ''} onChange={(e) => setCustomerDraft({ ...customerDraft, stateCode: e.target.value.replace(/\D/g, '').slice(0, 2) })} /></div>
+                  <div className="form-group"><label className="form-label">Default HSN / SAC</label><input className="form-input" value={customerDraft.hsnCode || ''} onChange={(e) => setCustomerDraft({ ...customerDraft, hsnCode: e.target.value })} /></div>
+                </div>
+                <div className="modal-actions">
+                  <button type="button" className="btn btn-ghost" onClick={() => setShowCustomerModal(false)}>Cancel</button>
+                  <button type="submit" className="btn btn-primary" disabled={savingCustomer}>{savingCustomer ? 'Saving...' : 'Save Customer Details'}</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -617,6 +617,22 @@ a:hover {
   line-height: 1.4;
 }
 
+.customer-picker {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.customer-picker .form-select { min-width: 0; }
+.customer-manage-button { flex: 0 0 auto; }
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+}
+
 .form-textarea {
   resize: vertical;
   min-height: 100px;
@@ -1309,6 +1325,11 @@ tbody tr:hover {
   .form-input, .form-select, .form-textarea { padding: 11px 12px; font-size: 16px; }
   .btn { min-height: 42px; padding: 10px 14px; }
   .btn-icon { min-height: 36px; }
+
+  .customer-picker { flex-direction: column; }
+  .customer-manage-button { width: 100%; }
+  .modal-actions { flex-direction: column-reverse; }
+  .modal-actions .btn { width: 100%; }
 
   /* Turn the wide item editor into compact, labelled cards on phones. */
   .line-items-table { min-width: 0; }

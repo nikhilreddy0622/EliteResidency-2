@@ -40,4 +40,20 @@ router.post('/', protect, authorize('admin', 'logger'), async (req, res) => {
   }
 });
 
+router.put('/:id', protect, authorize('admin', 'logger'), async (req, res) => {
+  try {
+    const details = req.body;
+    if (!details.name?.trim()) return res.status(400).json({ success: false, message: 'Customer name is required' });
+    const customer = await Customer.findByIdAndUpdate(
+      req.params.id,
+      { ...details, lastModifiedBy: req.user._id },
+      { new: true, runValidators: true }
+    );
+    if (!customer) return res.status(404).json({ success: false, message: 'Customer not found' });
+    res.json({ success: true, data: customer });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 module.exports = router;

@@ -147,9 +147,8 @@ router.get('/', protect, async (req, res) => {
 
     const query = {};
 
-    // Loggers can only ever see their own invoices, even if they modify query
-    // parameters manually. Admins may optionally filter by a specific logger.
-    if (req.user.role === 'logger') query.createdBy = req.user._id;
+    // All authenticated users may view invoices. Editing and locking ownership
+    // checks are enforced separately below; admins can filter by logger.
     if (req.user.role === 'admin' && loggerId) query.createdBy = loggerId;
 
     // Search by invoice number or party name
@@ -213,7 +212,7 @@ router.get('/', protect, async (req, res) => {
 // @access  Private
 router.get('/stats', protect, async (req, res) => {
   try {
-    const ownershipQuery = req.user.role === 'logger' ? { createdBy: req.user._id } : {};
+    const ownershipQuery = {};
     const totalReports = await Report.countDocuments(ownershipQuery);
     const draftReports = await Report.countDocuments({ ...ownershipQuery, status: 'draft' });
     const lockedReports = await Report.countDocuments({ ...ownershipQuery, status: 'locked' });
@@ -283,10 +282,6 @@ router.get('/:id', protect, async (req, res) => {
 
     if (!report) {
       return res.status(404).json({ success: false, message: 'Report not found' });
-    }
-
-    if (req.user.role === 'logger' && String(report.createdBy) !== String(req.user._id)) {
-      return res.status(403).json({ success: false, message: 'You can only view invoices you created' });
     }
 
     res.json({ success: true, data: report });
