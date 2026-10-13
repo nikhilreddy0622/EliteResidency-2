@@ -4,7 +4,10 @@ const lineItemSchema = new mongoose.Schema({
   sno: { type: Number, required: true },
   description: { type: String, required: true, trim: true },
   hsnCode: { type: String, trim: true },
+  // Keeps blank legacy GST-export cells blank without changing invoice values.
+  exportHsnCode: { type: String },
   quantity: { type: Number, required: true },
+  exportQuantity: { type: mongoose.Schema.Types.Mixed },
   uom: { type: String, trim: true, default: 'NOS' },
   rate: { type: Number, required: true },
   amount: { type: Number, required: true }

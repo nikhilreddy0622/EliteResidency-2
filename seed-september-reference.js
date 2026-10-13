@@ -44,7 +44,7 @@ async function seedReferenceMonth() {
         invoiceNumber, sequenceNumber, financialYear: invoiceNumber.split('/')[1], invoiceDate,
         invoiceType: taxRate === 18 ? 'gst' : taxRate === 5 ? 'non_gst' : 'gst_returnable',
         partyDetails: { name: row.getCell(4).text, gstin: row.getCell(5).text, state: row.getCell(6).text },
-        lineItems: [{ sno: 1, description: row.getCell(8).text, hsnCode: row.getCell(9).text, quantity: Number(row.getCell(10).value || 1) || 1, uom: row.getCell(11).text || 'OTH', rate: Number((taxable / (Number(row.getCell(10).value) || 1)).toFixed(4)), amount: taxable }],
+        lineItems: [{ sno: 1, description: row.getCell(8).text, hsnCode: row.getCell(9).text, exportHsnCode: row.getCell(9).text, quantity: Number(row.getCell(10).value || 1) || 1, exportQuantity: row.getCell(10).value === null ? '' : row.getCell(10).value, uom: row.getCell(11).text || 'OTH', rate: Number((taxable / (Number(row.getCell(10).value) || 1)).toFixed(4)), amount: taxable }],
         totalAmount: taxable, cgstRate: taxRate / 2, cgstAmount, sgstRate: taxRate / 2, sgstAmount, igstRate: 0, igstAmount: 0, grandTotal, amountInWords: amountInWords(grandTotal),
         paymentStatus, paidAmount, balanceAmount, status, isLocked: status === 'locked', lockedBy: status === 'locked' ? creator._id : undefined, lockedAt: status === 'locked' ? invoiceDate : undefined,
         createdBy: creator._id, lastModifiedBy: creator._id, notes: row.getCell(18).text

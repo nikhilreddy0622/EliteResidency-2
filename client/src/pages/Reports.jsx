@@ -12,8 +12,10 @@ import {
   Edit2,
   Trash2,
   Lock,
-  FileText
-  ,Download
+  FileText,
+  Download,
+  CreditCard,
+  X
 } from 'lucide-react';
 
 export default function Reports({ mineOnly = false }) {
@@ -33,7 +35,11 @@ export default function Reports({ mineOnly = false }) {
   const [paymentStatus, setPaymentStatus] = useState('');
   const [exportMode, setExportMode] = useState('monthly');
   const [exportMonth, setExportMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [exportStartDate, setExportStartDate] = useState('');
+  const [exportEndDate, setExportEndDate] = useState('');
   const [exporting, setExporting] = useState(false);
+  const [paymentEditor, setPaymentEditor] = useState(null);
+  const [savingPayment, setSavingPayment] = useState(false);
 
   useEffect(() => {
     fetchReports();
@@ -89,8 +95,8 @@ export default function Reports({ mineOnly = false }) {
     const params = { status, paymentStatus, loggerId, mine: mineOnly ? 'true' : undefined };
     if (exportMode === 'monthly') params.month = exportMonth;
     else {
-      if (!startDate || !endDate) { toast.error('Choose both dates for a date-range export'); return; }
-      params.startDate = startDate; params.endDate = endDate;
+      if (!exportStartDate || !exportEndDate) { toast.error('Choose both dates for a date-range export'); return; }
+      params.startDate = exportStartDate; params.endDate = exportEndDate;
     }
     Object.keys(params).forEach((key) => !params[key] && delete params[key]);
     setExporting(true);
@@ -105,6 +111,16 @@ export default function Reports({ mineOnly = false }) {
     } catch (err) {
       toast.error('Could not generate the GST sales workbook');
     } finally { setExporting(false); }
+  };
+
+  const openPaymentEditor = (report) => setPaymentEditor({ report, paymentStatus: report.paymentStatus || 'pending', paidAmount: report.paidAmount || 0 });
+  const savePayment = async () => {
+    setSavingPayment(true);
+    try {
+      await reportAPI.updatePayment(paymentEditor.report._id, { paymentStatus: paymentEditor.paymentStatus, paidAmount: paymentEditor.paidAmount });
+      toast.success('Payment updated'); setPaymentEditor(null); fetchReports();
+    } catch (err) { toast.error(err.response?.data?.message || 'Could not update payment'); }
+    finally { setSavingPayment(false); }
   };
 
   const handleDelete = async (id) => {
@@ -149,10 +165,20 @@ export default function Reports({ mineOnly = false }) {
           </div>
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
             {(user?.role === 'admin' || user?.role === 'logger') && <Link to="/reports/new" className="btn btn-primary"><Plus size={18} /> New Invoice</Link>}
-            {(user?.role === 'admin' || user?.role === 'logger') && <button type="button" className="btn btn-outline" onClick={handleExport} disabled={exporting}><Download size={18} /> {exporting ? 'Preparing…' : 'Download GST Excel'}</button>}
           </div>
         </div>
       </div>
+
+      {(user?.role === 'admin' || user?.role === 'logger') && <section className="card" style={{ marginBottom: '24px', padding: '18px 22px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '18px', flexWrap: 'wrap', marginBottom: '14px' }}>
+          <div><h3 style={{ margin: 0, fontSize: '1.05rem' }}>GST Sales Excel Export</h3><p className="text-muted" style={{ margin: '4px 0 0' }}>Choose one period, then download the GST sales workbook.</p></div>
+          <button type="button" className="btn btn-outline" onClick={handleExport} disabled={exporting}><Download size={18} /> {exporting ? 'Preparing…' : 'Download Excel'}</button>
+        </div>
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'end' }}>
+          <div className="form-group" style={{ margin: 0, minWidth: '190px' }}><label className="form-label">Export period</label><select className="form-select" value={exportMode} onChange={(e) => setExportMode(e.target.value)}><option value="monthly">Monthly export</option><option value="range">Date-range export</option></select></div>
+          {exportMode === 'monthly' ? <div className="form-group" style={{ margin: 0, minWidth: '210px' }}><label className="form-label">Month to export</label><input type="month" className="form-input" value={exportMonth} onChange={(e) => setExportMonth(e.target.value)} /></div> : <><div className="form-group" style={{ margin: 0, minWidth: '190px' }}><label className="form-label">From date</label><input type="date" className="form-input" value={exportStartDate} onChange={(e) => setExportStartDate(e.target.value)} /></div><div className="form-group" style={{ margin: 0, minWidth: '190px' }}><label className="form-label">To date</label><input type="date" className="form-input" value={exportEndDate} onChange={(e) => setExportEndDate(e.target.value)} /></div></>}
+        </div>
+      </section>}
 
       {/* Filters */}
       <form className="filters-bar" onSubmit={handleSearch}>
@@ -197,10 +223,6 @@ export default function Reports({ mineOnly = false }) {
             <RefreshCcw size={16} /> Clear
           </button>
         </div>
-        {(user?.role === 'admin' || user?.role === 'logger') && <div className="filter-item" style={{ display: 'flex', gap: '8px', alignItems: 'center', minWidth: '250px' }}>
-          <select className="form-select" value={exportMode} onChange={(e) => setExportMode(e.target.value)} style={{ minWidth: '110px' }}><option value="monthly">Monthly</option><option value="range">Date range</option></select>
-          {exportMode === 'monthly' && <input type="month" className="form-input" value={exportMonth} onChange={(e) => setExportMonth(e.target.value)} />}
-        </div>}
       </form>
 
       {/* Table */}
@@ -272,6 +294,7 @@ export default function Reports({ mineOnly = false }) {
                         <Link to={`/reports/${report._id}`} className="btn btn-ghost btn-icon btn-sm" title="View">
                           <Eye size={16} />
                         </Link>
+                        {(user?.role === 'admin' || (user?.role === 'logger' && report.createdBy?._id === user._id)) && <button className="btn btn-ghost btn-icon btn-sm" onClick={() => openPaymentEditor(report)} title="Edit payment"><CreditCard size={16} /></button>}
                         
                         {(user?.role === 'admin' || (user?.role === 'logger' && report.createdBy?._id === user._id && report.status === 'draft')) && (
                           <Link to={`/reports/${report._id}/edit`} className="btn btn-ghost btn-icon btn-sm" title="Edit">
@@ -321,6 +344,7 @@ export default function Reports({ mineOnly = false }) {
           </div>
         )}
       </div>
+      {paymentEditor && <div className="modal-overlay" onClick={() => setPaymentEditor(null)}><div className="modal" onClick={(event) => event.stopPropagation()}><div className="modal-header"><h3>Edit Payment — {paymentEditor.report.invoiceNumber}</h3><button className="modal-close" onClick={() => setPaymentEditor(null)}><X size={18} /></button></div><div className="modal-body"><div className="form-row"><div className="form-group"><label className="form-label">Payment status</label><select className="form-select" value={paymentEditor.paymentStatus} onChange={(e) => { const paymentStatus = e.target.value; setPaymentEditor({ ...paymentEditor, paymentStatus, paidAmount: paymentStatus === 'paid' ? paymentEditor.report.grandTotal : paymentStatus === 'pending' ? 0 : paymentEditor.paidAmount }); }}><option value="pending">Pending</option><option value="partial">Partially Paid</option><option value="paid">Paid</option></select></div><div className="form-group"><label className="form-label">Paid amount</label><input className="form-input" type="number" min="0" max={paymentEditor.report.grandTotal} step="0.01" disabled={paymentEditor.paymentStatus !== 'partial'} value={paymentEditor.paidAmount} onChange={(e) => setPaymentEditor({ ...paymentEditor, paidAmount: e.target.value })} /></div></div><div className="card" style={{ padding: '14px', marginTop: '10px' }}><span className="text-muted">Balance after update</span><strong style={{ display: 'block', marginTop: '5px', color: 'var(--accent-primary)' }}>{formatCurrency(Math.max(0, paymentEditor.report.grandTotal - (Number(paymentEditor.paidAmount) || 0)))}</strong></div><div className="modal-actions"><button className="btn btn-ghost" onClick={() => setPaymentEditor(null)}>Cancel</button><button className="btn btn-primary" onClick={savePayment} disabled={savingPayment}>{savingPayment ? 'Saving…' : 'Save Payment'}</button></div></div></div></div>}
     </div>
   );
 }
