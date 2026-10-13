@@ -46,15 +46,21 @@ async function buildGstSalesWorkbook(reports, { month }) {
     const cgst = Number((taxable * rate / 2).toFixed(2));
     const sgst = Number((taxable * rate / 2).toFixed(2));
     const igst = report.igstRate ? Number((taxable * Number(report.igstRate) / 100).toFixed(2)) : 0;
-    const values = [b2b ? 'B2B' : 'B2C', fmtDate(report.invoiceDate), report.invoiceNumber, report.partyDetails?.name || '', report.partyDetails?.gstin || '', (report.partyDetails?.state || 'TELANGANA').toUpperCase(), 'S', item.description || '', item.exportHsnCode !== undefined ? item.exportHsnCode : (item.hsnCode || ''), item.exportQuantity !== undefined ? item.exportQuantity : (item.quantity ?? ''), item.uom || 'OTH', taxable, rate, { formula: `L${rowIndex}*M${rowIndex}/2`, result: cgst }, { formula: `L${rowIndex}*M${rowIndex}/2`, result: sgst }, report.igstRate ? { formula: `L${rowIndex}*${Number(report.igstRate) / 100}`, result: igst } : '', { formula: `L${rowIndex}+N${rowIndex}+O${rowIndex}+P${rowIndex}`, result: Number((taxable + cgst + sgst + igst).toFixed(2)) }, report.notes?.includes('Cancelled') ? 'Cancelled' : ''];
+    // Use calculated values instead of formula-only cells. Excel-compatible
+    // viewers do not consistently recalculate a downloaded workbook, which
+    // otherwise leaves CGST, SGST and document total visibly blank.
+    const values = [b2b ? 'B2B' : 'B2C', fmtDate(report.invoiceDate), report.invoiceNumber, report.partyDetails?.name || '', report.partyDetails?.gstin || '', (report.partyDetails?.state || 'TELANGANA').toUpperCase(), 'S', item.description || '', item.exportHsnCode !== undefined ? item.exportHsnCode : (item.hsnCode || ''), item.exportQuantity !== undefined ? item.exportQuantity : (item.quantity ?? ''), item.uom || 'OTH', taxable, rate, cgst, sgst, report.igstRate ? igst : '', Number((taxable + cgst + sgst + igst).toFixed(2)), report.notes?.includes('Cancelled') ? 'Cancelled' : ''];
     values.forEach((value, column) => { const cell = row.getCell(column + 1); cell.value = value; cell.font = { name: 'Times New Roman', size: 14 }; cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }; cell.border = { left: thinBorder, right: thinBorder, top: thinBorder, bottom: thinBorder }; });
     row.getCell(12).numFmt = '0.00'; row.getCell(13).numFmt = '0%'; [14, 15, 16, 17].forEach((column) => { row.getCell(column).numFmt = '0.00'; });
+    if (report.notes?.includes('Cancelled')) {
+      [9, 10, 11, 12, 13, 14, 15, 16, 17, 18].forEach((column) => { row.getCell(column).font = { name: 'Times New Roman', size: 14, color: { argb: 'FFFF0000' } }; });
+    }
     row.height = 25.5;
     rowIndex += 1;
   }));
   const total = sheet.getRow(rowIndex);
   total.getCell(11).value = 'TOTAL';
-  [12, 13, 14, 15, 16, 17].forEach((column) => { const letter = sheet.getColumn(column).letter; const result = reports.reduce((sum, report) => sum + (report.lineItems || []).reduce((lineTotal, item) => lineTotal + (column === 12 ? Number(item.amount || 0) : column === 13 ? taxRate(report) : column === 14 ? Number((Number(item.amount || 0) * taxRate(report) / 2).toFixed(2)) : column === 15 ? Number((Number(item.amount || 0) * taxRate(report) / 2).toFixed(2)) : column === 16 ? Number((Number(item.amount || 0) * Number(report.igstRate || 0) / 100).toFixed(2)) : Number((Number(item.amount || 0) * (1 + taxRate(report))).toFixed(2))), 0), 0); total.getCell(column).value = { formula: `SUM(${letter}4:${letter}${rowIndex - 1})`, result }; total.getCell(column).numFmt = column === 13 ? '0%' : '0.00'; });
+  [12, 13, 14, 15, 16, 17].forEach((column) => { const result = reports.reduce((sum, report) => sum + (report.lineItems || []).reduce((lineTotal, item) => lineTotal + (column === 12 ? Number(item.amount || 0) : column === 13 ? taxRate(report) : column === 14 ? Number((Number(item.amount || 0) * taxRate(report) / 2).toFixed(2)) : column === 15 ? Number((Number(item.amount || 0) * taxRate(report) / 2).toFixed(2)) : column === 16 ? Number((Number(item.amount || 0) * Number(report.igstRate || 0) / 100).toFixed(2)) : Number((Number(item.amount || 0) * (1 + taxRate(report))).toFixed(2))), 0), 0); total.getCell(column).value = result; total.getCell(column).numFmt = column === 13 ? '0%' : '0.00'; });
   for (let column = 1; column <= 18; column += 1) { const cell = total.getCell(column); cell.font = { name: 'Times New Roman', size: 14, bold: true }; cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }; cell.border = { left: thinBorder, right: thinBorder, top: thinBorder, bottom: thinBorder }; }
   const validation = workbook.addWorksheet('Data Validation');
   validation.addRow(['Item_Category', 'Credit Debit', 'Tax Rate']);
