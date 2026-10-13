@@ -18,6 +18,8 @@ export default function ReportDetail() {
   const { user } = useAuth();
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [payment, setPayment] = useState({ paymentStatus: 'pending', paidAmount: 0 });
+  const [savingPayment, setSavingPayment] = useState(false);
 
   const printRef = useRef();
 
@@ -34,12 +36,24 @@ export default function ReportDetail() {
     try {
       const { data } = await reportAPI.getById(id);
       setReport(data.data);
+      setPayment({ paymentStatus: data.data.paymentStatus || 'pending', paidAmount: data.data.paidAmount || 0 });
     } catch (err) {
       toast.error('Failed to load invoice details');
       navigate('/reports');
     } finally {
       setLoading(false);
     }
+  };
+
+  const savePayment = async () => {
+    setSavingPayment(true);
+    try {
+      await reportAPI.updatePayment(report._id, payment);
+      toast.success('Payment status updated');
+      fetchReport();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Could not update payment status');
+    } finally { setSavingPayment(false); }
   };
 
   const handleToggleLock = async () => {
@@ -68,6 +82,7 @@ export default function ReportDetail() {
   const isOwner = report.createdBy?._id === user?._id || report.createdBy === user?._id;
   const isEditable = user?.role === 'admin' || (report.status === 'draft' && user?.role === 'logger' && isOwner);
   const canLock = report.status === 'draft' && (user?.role === 'admin' || (user?.role === 'logger' && isOwner));
+  const canUpdatePayment = user?.role === 'admin' || (user?.role === 'logger' && isOwner);
 
   return (
     <div className="fade-in">
@@ -143,6 +158,15 @@ export default function ReportDetail() {
               <div className="text-muted" style={{ marginBottom: '4px' }}>Total Amount</div>
               <div style={{ fontWeight: 600, color: 'var(--accent-primary)' }}>₹ {(report.grandTotal || 0).toFixed(2)}</div>
             </div>
+          </div>
+        </div>
+        <div className="card">
+          <h4 style={{ color: 'var(--text-secondary)', marginBottom: '16px', fontSize: '0.85rem', textTransform: 'uppercase' }}>Payment Status</h4>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', alignItems: 'end' }}>
+            <label><span className="form-label">Status</span><select className="form-select" disabled={!canUpdatePayment} value={payment.paymentStatus} onChange={(e) => { const status = e.target.value; setPayment({ paymentStatus: status, paidAmount: status === 'paid' ? report.grandTotal : status === 'pending' ? 0 : payment.paidAmount }); }}><option value="pending">Pending</option><option value="partial">Partially Paid</option><option value="paid">Paid</option></select></label>
+            <label><span className="form-label">Paid Amount</span><input className="form-input" type="number" min="0" max={report.grandTotal} step="0.01" disabled={!canUpdatePayment || payment.paymentStatus !== 'partial'} value={payment.paidAmount} onChange={(e) => setPayment({ ...payment, paidAmount: e.target.value })} /></label>
+            <div><span className="text-muted">Balance Amount</span><div style={{ fontWeight: 700, color: 'var(--accent-primary)', marginTop: '6px' }}>₹ {Math.max(0, report.grandTotal - (Number(payment.paidAmount) || 0)).toFixed(2)}</div></div>
+            {canUpdatePayment && <button className="btn btn-primary" onClick={savePayment} disabled={savingPayment}>{savingPayment ? 'Saving…' : 'Save Payment'}</button>}
           </div>
         </div>
       </div>

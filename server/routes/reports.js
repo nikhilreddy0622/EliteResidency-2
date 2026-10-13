@@ -5,6 +5,7 @@ const AuditLog = require('../models/AuditLog');
 const Counter = require('../models/Counter');
 const Customer = require('../models/Customer');
 const { amountInWords } = require('../utils/amountInWords');
+const { buildGstSalesWorkbook } = require('../utils/gstSalesWorkbook');
 const { protect, authorize } = require('../middleware/auth');
 
 const router = express.Router();
@@ -35,6 +36,9 @@ const buildCalculatedInvoice = (input) => {
   const grandTotal = config.taxReturnable
     ? totalAmount
     : Math.round((totalAmount + cgstAmount + sgstAmount) * 100) / 100;
+  const paidAmount = Math.min(Math.max(Number(input.paidAmount) || 0, 0), grandTotal);
+  const balanceAmount = Number((grandTotal - paidAmount).toFixed(2));
+  const paymentStatus = paidAmount === 0 ? 'pending' : balanceAmount === 0 ? 'paid' : 'partial';
 
   return {
     ...input,
@@ -48,7 +52,10 @@ const buildCalculatedInvoice = (input) => {
     igstRate: 0,
     igstAmount: 0,
     grandTotal,
-    amountInWords: amountInWords(grandTotal)
+    amountInWords: amountInWords(grandTotal),
+    paidAmount,
+    balanceAmount,
+    paymentStatus
   };
 };
 
@@ -75,6 +82,27 @@ const getFinancialYear = (date) => {
   } else {
     return `${year - 1}-${year.toString().slice(-2)}`;
   }
+};
+
+const buildReportQuery = (params, user) => {
+  const { search, status, financialYear, startDate, endDate, partyName, loggerId, mine, paymentStatus, month } = params;
+  const query = {};
+  if (user.role === 'admin' && loggerId) query.createdBy = loggerId;
+  if (user.role === 'logger' && mine === 'true') query.createdBy = user._id;
+  if (search) query.$or = [{ invoiceNumber: { $regex: search, $options: 'i' } }, { 'partyDetails.name': { $regex: search, $options: 'i' } }];
+  if (status) query.status = status;
+  if (paymentStatus) query.paymentStatus = paymentStatus;
+  if (financialYear) query.financialYear = financialYear;
+  if (partyName) query['partyDetails.name'] = { $regex: partyName, $options: 'i' };
+  if (month && /^\d{4}-\d{2}$/.test(month)) {
+    const [year, monthNumber] = month.split('-').map(Number);
+    query.invoiceDate = { $gte: new Date(Date.UTC(year, monthNumber - 1, 1)), $lt: new Date(Date.UTC(year, monthNumber, 1)) };
+  } else if (startDate || endDate) {
+    query.invoiceDate = {};
+    if (startDate) query.invoiceDate.$gte = new Date(startDate);
+    if (endDate) { const inclusiveEnd = new Date(endDate); inclusiveEnd.setUTCHours(23, 59, 59, 999); query.invoiceDate.$lte = inclusiveEnd; }
+  }
+  return query;
 };
 
 // Helper: Detect changes between old and new data
@@ -141,50 +169,12 @@ router.get('/', protect, async (req, res) => {
       financialYear,
       startDate,
       endDate,
-      partyName,
-      loggerId,
-      mine,
+      paymentStatus,
       sortBy = 'createdAt',
       sortOrder = 'desc'
     } = req.query;
 
-    const query = {};
-
-    // All authenticated users may view invoices. Editing and locking ownership
-    // checks are enforced separately below; admins can filter by logger. A
-    // logger can also request their own invoice history explicitly.
-    if (req.user.role === 'admin' && loggerId) query.createdBy = loggerId;
-    if (req.user.role === 'logger' && mine === 'true') query.createdBy = req.user._id;
-
-    // Search by invoice number or party name
-    if (search) {
-      query.$or = [
-        { invoiceNumber: { $regex: search, $options: 'i' } },
-        { 'partyDetails.name': { $regex: search, $options: 'i' } }
-      ];
-    }
-
-    // Filter by status
-    if (status) {
-      query.status = status;
-    }
-
-    // Filter by financial year
-    if (financialYear) {
-      query.financialYear = financialYear;
-    }
-
-    // Filter by date range
-    if (startDate || endDate) {
-      query.invoiceDate = {};
-      if (startDate) query.invoiceDate.$gte = new Date(startDate);
-      if (endDate) query.invoiceDate.$lte = new Date(endDate);
-    }
-
-    // Filter by party name
-    if (partyName) {
-      query['partyDetails.name'] = { $regex: partyName, $options: 'i' };
-    }
+    const query = buildReportQuery({ ...req.query, paymentStatus }, req.user);
 
     const sort = { [sortBy]: sortOrder === 'asc' ? 1 : -1 };
 
@@ -207,6 +197,23 @@ router.get('/', protect, async (req, res) => {
         limit: parseInt(limit)
       }
     });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// @route GET /api/reports/export/gst-sales
+// @desc Download the GST sales workbook for a date range or one selected month
+// @access Admin and logger (viewers are intentionally excluded)
+router.get('/export/gst-sales', protect, authorize('admin', 'logger'), async (req, res) => {
+  try {
+    const reports = await Report.find(buildReportQuery(req.query, req.user)).sort({ invoiceDate: 1, sequenceNumber: 1 });
+    const workbook = await buildGstSalesWorkbook(reports, { month: req.query.month });
+    const buffer = await workbook.xlsx.writeBuffer();
+    const suffix = req.query.month || `${req.query.startDate || 'all'}_to_${req.query.endDate || 'all'}`;
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="GST-SALES-${suffix}.xlsx"`);
+    res.send(Buffer.from(buffer));
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -445,6 +452,28 @@ router.put('/:id', protect, authorize('admin', 'logger'), async (req, res) => {
     });
     await saveCustomerDetails(updatedReport.partyDetails, updatedReport.lineItems, req.user._id);
 
+    res.json({ success: true, data: updatedReport });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// @route PUT /api/reports/:id/payment
+// @desc Update collection state without changing the invoice itself
+router.put('/:id/payment', protect, authorize('admin', 'logger'), async (req, res) => {
+  try {
+    const report = await Report.findById(req.params.id);
+    if (!report) return res.status(404).json({ success: false, message: 'Report not found' });
+    if (req.user.role === 'logger' && String(report.createdBy) !== String(req.user._id)) return res.status(403).json({ success: false, message: 'You can only update payment details for invoices you created' });
+    const requestedStatus = req.body.paymentStatus;
+    let paidAmount = Number(req.body.paidAmount);
+    if (requestedStatus === 'paid') paidAmount = Number(report.grandTotal);
+    if (requestedStatus === 'pending') paidAmount = 0;
+    if (!Number.isFinite(paidAmount) || paidAmount < 0 || paidAmount > Number(report.grandTotal)) return res.status(400).json({ success: false, message: 'Paid amount must be between zero and the invoice total' });
+    const balanceAmount = Number((Number(report.grandTotal) - paidAmount).toFixed(2));
+    const paymentStatus = paidAmount === 0 ? 'pending' : balanceAmount === 0 ? 'paid' : 'partial';
+    const updatedReport = await Report.findByIdAndUpdate(report._id, { paidAmount, balanceAmount, paymentStatus, lastModifiedBy: req.user._id }, { new: true, runValidators: true }).populate('createdBy', 'name email');
+    await AuditLog.create({ reportId: report._id, invoiceNumber: report.invoiceNumber, action: 'payment_updated', performedBy: req.user._id, version: report.version, changes: [{ field: 'paymentStatus', oldValue: report.paymentStatus, newValue: paymentStatus }, { field: 'paidAmount', oldValue: report.paidAmount, newValue: paidAmount }], snapshot: updatedReport.toObject(), ipAddress: req.ip });
     res.json({ success: true, data: updatedReport });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });

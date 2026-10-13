@@ -13,6 +13,7 @@ import {
   Trash2,
   Lock,
   FileText
+  ,Download
 } from 'lucide-react';
 
 export default function Reports({ mineOnly = false }) {
@@ -29,10 +30,14 @@ export default function Reports({ mineOnly = false }) {
   const [page, setPage] = useState(1);
   const [loggerId, setLoggerId] = useState('');
   const [loggers, setLoggers] = useState([]);
+  const [paymentStatus, setPaymentStatus] = useState('');
+  const [exportMode, setExportMode] = useState('monthly');
+  const [exportMonth, setExportMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     fetchReports();
-  }, [page, status, startDate, endDate, loggerId, mineOnly]);
+  }, [page, status, startDate, endDate, loggerId, paymentStatus, mineOnly]);
 
   useEffect(() => {
     if (user?.role !== 'admin') return;
@@ -50,6 +55,7 @@ export default function Reports({ mineOnly = false }) {
       if (endDate) params.endDate = endDate;
       if (search) params.search = search;
       if (loggerId && user?.role === 'admin') params.loggerId = loggerId;
+      if (paymentStatus) params.paymentStatus = paymentStatus;
       if (mineOnly && user?.role === 'logger') params.mine = 'true';
 
       const { data } = await reportAPI.getAll(params);
@@ -74,8 +80,31 @@ export default function Reports({ mineOnly = false }) {
     setEndDate('');
     setSearch('');
     setLoggerId('');
+    setPaymentStatus('');
     setPage(1);
     setTimeout(fetchReports, 0);
+  };
+
+  const handleExport = async () => {
+    const params = { status, paymentStatus, loggerId, mine: mineOnly ? 'true' : undefined };
+    if (exportMode === 'monthly') params.month = exportMonth;
+    else {
+      if (!startDate || !endDate) { toast.error('Choose both dates for a date-range export'); return; }
+      params.startDate = startDate; params.endDate = endDate;
+    }
+    Object.keys(params).forEach((key) => !params[key] && delete params[key]);
+    setExporting(true);
+    try {
+      const response = await reportAPI.exportGstSales(params);
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `GST-SALES-${params.month || `${params.startDate}_to_${params.endDate}`}.xlsx`;
+      document.body.appendChild(link); link.click(); link.remove(); window.URL.revokeObjectURL(url);
+      toast.success('GST sales workbook downloaded');
+    } catch (err) {
+      toast.error('Could not generate the GST sales workbook');
+    } finally { setExporting(false); }
   };
 
   const handleDelete = async (id) => {
@@ -118,11 +147,10 @@ export default function Reports({ mineOnly = false }) {
             <h2>{mineOnly ? 'My Invoices' : 'Invoices & Reports'}</h2>
             <p>{mineOnly ? 'View and manage invoices you created' : 'Manage, track, and generate invoices'}</p>
           </div>
-          {(user?.role === 'admin' || user?.role === 'logger') && (
-            <Link to="/reports/new" className="btn btn-primary">
-              <Plus size={18} /> New Invoice
-            </Link>
-          )}
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            {(user?.role === 'admin' || user?.role === 'logger') && <Link to="/reports/new" className="btn btn-primary"><Plus size={18} /> New Invoice</Link>}
+            {(user?.role === 'admin' || user?.role === 'logger') && <button type="button" className="btn btn-outline" onClick={handleExport} disabled={exporting}><Download size={18} /> {exporting ? 'Preparing…' : 'Download GST Excel'}</button>}
+          </div>
         </div>
       </div>
 
@@ -142,6 +170,11 @@ export default function Reports({ mineOnly = false }) {
             <option value="">All Statuses</option>
             <option value="draft">Draft</option>
             <option value="locked">Locked</option>
+          </select>
+        </div>
+        <div className="filter-item" style={{ minWidth: '150px' }}>
+          <select className="form-select" value={paymentStatus} onChange={(e) => setPaymentStatus(e.target.value)}>
+            <option value="">All Payments</option><option value="pending">Payment Pending</option><option value="partial">Partially Paid</option><option value="paid">Paid</option>
           </select>
         </div>
         {user?.role === 'admin' && <div className="filter-item" style={{ minWidth: '180px' }}>
@@ -164,6 +197,10 @@ export default function Reports({ mineOnly = false }) {
             <RefreshCcw size={16} /> Clear
           </button>
         </div>
+        {(user?.role === 'admin' || user?.role === 'logger') && <div className="filter-item" style={{ display: 'flex', gap: '8px', alignItems: 'center', minWidth: '250px' }}>
+          <select className="form-select" value={exportMode} onChange={(e) => setExportMode(e.target.value)} style={{ minWidth: '110px' }}><option value="monthly">Monthly</option><option value="range">Date range</option></select>
+          {exportMode === 'monthly' && <input type="month" className="form-input" value={exportMonth} onChange={(e) => setExportMonth(e.target.value)} />}
+        </div>}
       </form>
 
       {/* Table */}
@@ -200,6 +237,8 @@ export default function Reports({ mineOnly = false }) {
                   {user?.role === 'admin' && <th>Created By</th>}
                   <th>Vehicle No</th>
                   <th>Amount</th>
+                  <th>Payment</th>
+                  <th>Balance</th>
                   <th>Status</th>
                   <th style={{ textAlign: 'right' }}>Actions</th>
                 </tr>
@@ -220,7 +259,9 @@ export default function Reports({ mineOnly = false }) {
                     </td>
                     {user?.role === 'admin' && <td>{report.createdBy?.name || 'Unknown'}</td>}
                     <td>{report.vehicleNo || '-'}</td>
-                    <td style={{ fontWeight: 600 }}>{formatCurrency(report.totalAmount)}</td>
+                    <td style={{ fontWeight: 600 }}>{formatCurrency(report.grandTotal)}</td>
+                    <td><span className={`badge badge-${report.paymentStatus === 'paid' ? 'locked' : report.paymentStatus === 'partial' ? 'draft' : 'pending'}`}>{report.paymentStatus === 'partial' ? 'partially paid' : report.paymentStatus || 'pending'}</span></td>
+                    <td style={{ fontWeight: 600 }}>{formatCurrency(report.balanceAmount ?? report.grandTotal)}</td>
                     <td>
                       <span className={`badge badge-${report.status}`}>
                         {report.status}

@@ -16,7 +16,7 @@ const auditLogSchema = new mongoose.Schema({
   // Action performed
   action: {
     type: String,
-    enum: ['created', 'edited', 'locked', 'unlocked', 'deleted', 'status_changed'],
+    enum: ['created', 'edited', 'locked', 'unlocked', 'deleted', 'status_changed', 'payment_updated'],
     required: true
   },
 

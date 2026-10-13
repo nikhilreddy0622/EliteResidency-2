@@ -92,6 +92,17 @@ const reportSchema = new mongoose.Schema({
   grandTotal: { type: Number, required: true },
   amountInWords: { type: String, trim: true },
 
+  // Payment tracking is intentionally separate from the invoice lifecycle.
+  // A confirmed invoice remains locked while its collection status can change.
+  paymentStatus: {
+    type: String,
+    enum: ['pending', 'partial', 'paid'],
+    default: 'pending',
+    index: true
+  },
+  paidAmount: { type: Number, default: 0, min: 0 },
+  balanceAmount: { type: Number, default: 0, min: 0 },
+
   // Bank details
   bankDetails: {
     bankName: { type: String, default: 'HDFC BANK' },
@@ -148,5 +159,6 @@ reportSchema.index({ status: 1 });
 reportSchema.index({ 'partyDetails.name': 1 });
 reportSchema.index({ invoiceDate: -1 });
 reportSchema.index({ createdAt: -1 });
+reportSchema.index({ paymentStatus: 1, invoiceDate: -1 });
 
 module.exports = mongoose.model('Report', reportSchema);
