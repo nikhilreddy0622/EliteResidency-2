@@ -178,14 +178,17 @@ router.get('/', protect, async (req, res) => {
 
     const sort = { [sortBy]: sortOrder === 'asc' ? 1 : -1 };
 
-    const total = await Report.countDocuments(query);
-    const reports = await Report.find(query)
+    const [total, reports] = await Promise.all([
+      Report.countDocuments(query),
+      Report.find(query)
       .populate('createdBy', 'name email')
       .populate('lastModifiedBy', 'name email')
       .populate('lockedBy', 'name email')
       .sort(sort)
       .skip((page - 1) * limit)
-      .limit(parseInt(limit));
+      .limit(parseInt(limit))
+      .lean()
+    ]);
 
     res.json({
       success: true,
@@ -225,45 +228,40 @@ router.get('/export/gst-sales', protect, authorize('admin', 'logger'), async (re
 router.get('/stats', protect, async (req, res) => {
   try {
     const ownershipQuery = {};
-    const totalReports = await Report.countDocuments(ownershipQuery);
-    const draftReports = await Report.countDocuments({ ...ownershipQuery, status: 'draft' });
-    const lockedReports = await Report.countDocuments({ ...ownershipQuery, status: 'locked' });
-
-    // Total revenue
-    const revenueResult = await Report.aggregate([
+    const revenuePipeline = [
       { $match: ownershipQuery },
       { $group: { _id: null, total: { $sum: '$grandTotal' } } }
-    ]);
-    const totalRevenue = revenueResult.length > 0 ? revenueResult[0].total : 0;
-
-    // Recent reports
-    const recentReports = await Report.find(ownershipQuery)
-      .populate('createdBy', 'name')
-      .sort({ createdAt: -1 })
-      .limit(5);
-
-    // Monthly revenue
-    const monthlyRevenue = await Report.aggregate([
+    ];
+    const monthlyPipeline = [
       { $match: ownershipQuery },
       {
         $group: {
-          _id: {
-            year: { $year: '$invoiceDate' },
-            month: { $month: '$invoiceDate' }
-          },
+          _id: { year: { $year: '$invoiceDate' }, month: { $month: '$invoiceDate' } },
           total: { $sum: '$grandTotal' },
           count: { $sum: 1 }
         }
       },
       { $sort: { '_id.year': -1, '_id.month': -1 } },
       { $limit: 12 }
-    ]);
-
-    // Recent audit activity
-    const recentActivity = await AuditLog.find()
+    ];
+    const [totalReports, draftReports, lockedReports, revenueResult, recentReports, monthlyRevenue, recentActivity] = await Promise.all([
+      Report.countDocuments(ownershipQuery),
+      Report.countDocuments({ ...ownershipQuery, status: 'draft' }),
+      Report.countDocuments({ ...ownershipQuery, status: 'locked' }),
+      Report.aggregate(revenuePipeline),
+      Report.find(ownershipQuery)
+      .populate('createdBy', 'name')
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .lean(),
+      Report.aggregate(monthlyPipeline),
+      AuditLog.find()
       .populate('performedBy', 'name')
       .sort({ createdAt: -1 })
-      .limit(10);
+      .limit(10)
+      .lean()
+    ]);
+    const totalRevenue = revenueResult.length > 0 ? revenueResult[0].total : 0;
 
     res.json({
       success: true,

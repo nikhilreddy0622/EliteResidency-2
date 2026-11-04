@@ -9,7 +9,8 @@
     "dev": "concurrently \"npm run server\" \"npm run client\"",
     "install-all": "npm install && cd client && npm install",
     "seed:templates": "node seed-template-examples.js",
-    "seed:september": "node seed-september-reference.js"
+    "seed:september": "node seed-september-reference.js",
+    "reset:invoices": "node reset-invoices.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
