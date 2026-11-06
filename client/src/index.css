@@ -1299,34 +1299,40 @@ tbody tr:hover {
 }
 
 .invoice-paper {
-  width: 820px;
-  min-width: 820px;
+  width: 860px;
+  min-width: 860px;
   margin: 0 auto;
   padding: 0;
   background: #fff;
   color: #000;
   font-family: "Times New Roman", Times, serif;
-  font-size: 14px;
-  line-height: 1.12;
+  font-size: 15px;
+  line-height: 1.2;
   box-shadow: 0 4px 12px rgba(0, 0, 0, .5);
 }
 
 .invoice-paper * { box-sizing: border-box; }
-.invoice-top-row { min-height: 26px; align-items: center; font-size: 14px; }
-.invoice-company-header { min-height: 112px; display: flex; flex-direction: column; justify-content: center; }
-.invoice-company-header h1 { font-size: 27px !important; line-height: 1; }
-.invoice-delivery-row { min-height: 28px; align-items: center; font-size: 13px; }
-.invoice-party-section { min-height: 185px !important; }
-.invoice-items { font-size: 14px; }
-.invoice-items th { font-size: 14px; color: #000; background: #fff; letter-spacing: 0; }
+.invoice-top-row { min-height: 28px; align-items: center; font-size: 15px; }
+.invoice-company-header { min-height: 118px; display: flex; flex-direction: column; justify-content: center; }
+.invoice-company-header h1 { font-size: 29px !important; line-height: 1; }
+.invoice-delivery-row { min-height: 30px; align-items: center; font-size: 14px; }
+.invoice-party-section { min-height: 205px !important; }
+.invoice-party-codes { line-height: 1.45; }
+.invoice-po-section { font-size: 14px; line-height: 1.35; }
+.invoice-items { font-size: 15px; }
+.invoice-items th { font-size: 15px; color: #000; background: #fff; letter-spacing: 0; }
 .invoice-items td, .invoice-items th { line-height: 1.14; }
+.invoice-items td { color: #000 !important; opacity: 1 !important; }
+.invoice-item-row td { font-size: 15px; }
 .invoice-total-row td { padding-block: 7px !important; }
 .invoice-tax-area { min-height: 122px; }
 .invoice-tax-note { padding: 10px; min-height: 122px; display: flex; align-items: center; justify-content: center; text-align: center; }
 .invoice-tax-note.is-reverse-charge { color: #d60000; font-size: 16px; font-weight: 800; line-height: 1.2; }
-.invoice-tax-summary { font-size: 14px; }
+.invoice-tax-summary { font-size: 15px; }
 .invoice-tax-summary > div { min-height: 25px; align-items: center; }
-.invoice-words { min-height: 27px; display: flex; align-items: center; font-size: 14px; }
+.invoice-words { min-height: 30px; display: flex; align-items: center; font-size: 15px; }
+.invoice-bank-section { min-height: 235px; }
+.invoice-footer-note { min-height: 34px; font-size: 14px; }
 
 .line-items-wrapper {
   overflow-x: auto;
@@ -1404,15 +1410,35 @@ tbody tr:hover {
   .pagination button { padding: 8px 12px; }
 }
 
+@page { size: A4 portrait; margin: 5mm; }
+
 @media print {
   body { background: #fff; }
   .invoice-paper {
-    width: 100%;
-    min-width: 0;
-    max-width: none;
+    width: 200mm;
+    min-width: 200mm;
+    max-width: 200mm;
     margin: 0;
     padding: 0;
     box-shadow: none;
-    font-size: 11px;
+    font-size: 13px;
+    color: #000 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
+
+  /* Preserve the complete bordered invoice on one A4 portrait page. */
+  .invoice-company-header { min-height: 82px; }
+  .invoice-delivery-row { min-height: 24px; }
+  .invoice-party-section { min-height: 145px !important; }
+  .invoice-item-row { height: 150px !important; }
+  .invoice-tax-area { min-height: 100px; }
+  .invoice-bank-section { min-height: 170px; }
+  .invoice-footer-note { min-height: 26px; padding: 5px 8px !important; }
+
+  .invoice-paper * { color: #000 !important; opacity: 1 !important; }
+  .invoice-paper h1 { color: #b71c1c !important; }
+  .invoice-company-header div { color: #26733b !important; }
+  .invoice-top-row, .invoice-delivery-row { color: #087c99 !important; }
+  .invoice-tax-note.is-reverse-charge { color: #d60000 !important; }
 }

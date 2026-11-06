@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { customerAPI, reportAPI } from '../api';
+import { customerAPI, reportAPI, savedItemAPI } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'react-toastify';
 import { toWords } from 'number-to-words';
@@ -49,6 +49,11 @@ export default function ReportForm() {
   const [savingCustomer, setSavingCustomer] = useState(false);
   const [editingCustomerId, setEditingCustomerId] = useState(null);
   const [customerDraft, setCustomerDraft] = useState({ ...initialPartyDetails, hsnCode: '' });
+  const [savedItems, setSavedItems] = useState([]);
+  const [showItemModal, setShowItemModal] = useState(false);
+  const [savingItem, setSavingItem] = useState(false);
+  const [editingItemId, setEditingItemId] = useState(null);
+  const [itemDraft, setItemDraft] = useState({ description: '', hsnCode: '6815.99.10', uom: 'NOS', defaultRate: 0 });
 
   // Form State
   const [formData, setFormData] = useState({
@@ -60,7 +65,7 @@ export default function ReportForm() {
     companyDetails: { ...initialCompanyDetails },
     partyDetails: { ...initialPartyDetails },
     lineItems: [
-      { description: '', hsnCode: '', quantity: 1, uom: 'NOS', rate: 0, amount: 0 }
+      { description: '', hsnCode: '6815.99.10', quantity: 1, uom: 'NOS', rate: 0, amount: 0 }
     ],
     taxDetails: {
       cgstRate: 9,
@@ -86,6 +91,10 @@ export default function ReportForm() {
     customerAPI.getAll().then(({ data }) => setCustomers(data.data)).catch(() => {
       toast.error('Saved customer details could not be loaded');
     });
+  }, []);
+
+  useEffect(() => {
+    savedItemAPI.getAll().then(({ data }) => setSavedItems(data.data)).catch(() => toast.error('Saved item descriptions could not be loaded'));
   }, []);
 
   const fetchReport = async () => {
@@ -204,6 +213,42 @@ export default function ReportForm() {
     calculateTotals({ ...formData, lineItems: newLineItems });
   };
 
+  const applySavedItem = (index, itemId) => {
+    const savedItem = savedItems.find((item) => item._id === itemId);
+    if (!savedItem) return;
+    const lineItems = [...formData.lineItems];
+    lineItems[index] = { ...lineItems[index], description: savedItem.description, hsnCode: savedItem.hsnCode || '6815.99.10', uom: savedItem.uom || 'NOS', rate: savedItem.defaultRate ?? 0 };
+    calculateTotals({ ...formData, lineItems });
+  };
+
+  const openItemModal = (item = null) => {
+    setEditingItemId(item?._id || null);
+    setItemDraft(item ? { description: item.description || '', hsnCode: item.hsnCode || '6815.99.10', uom: item.uom || 'NOS', defaultRate: item.defaultRate ?? 0 } : { description: '', hsnCode: '6815.99.10', uom: 'NOS', defaultRate: 0 });
+    setShowItemModal(true);
+  };
+
+  const saveItem = async (event) => {
+    event.preventDefault();
+    if (!itemDraft.description.trim()) { toast.error('Item description is required'); return; }
+    setSavingItem(true);
+    try {
+      const { data } = editingItemId ? await savedItemAPI.update(editingItemId, itemDraft) : await savedItemAPI.save(itemDraft);
+      setSavedItems((previous) => [...previous.filter((item) => item._id !== data.data._id), data.data].sort((a, b) => a.description.localeCompare(b.description)));
+      toast.success(editingItemId ? 'Saved item updated' : 'Item description saved');
+      setShowItemModal(false);
+    } catch (err) { toast.error(err.response?.data?.message || 'Failed to save item'); }
+    finally { setSavingItem(false); }
+  };
+
+  const deleteItem = async () => {
+    if (!editingItemId || !window.confirm('Delete this saved item description? Existing invoices will not change.')) return;
+    try {
+      await savedItemAPI.delete(editingItemId);
+      setSavedItems((previous) => previous.filter((item) => item._id !== editingItemId));
+      toast.success('Saved item deleted'); setShowItemModal(false);
+    } catch (err) { toast.error(err.response?.data?.message || 'Failed to delete item'); }
+  };
+
   const handleCustomerSelect = (customerId) => {
     const customer = customers.find((item) => item._id === customerId);
     if (!customer) return;
@@ -219,7 +264,7 @@ export default function ReportForm() {
         stateCode: customer.stateCode || '',
         phone: customer.phone || ''
       },
-      lineItems: previous.lineItems.map((item, index) => index === 0 && !item.hsnCode
+      lineItems: previous.lineItems.map((item, index) => index === 0 && (!item.hsnCode || item.hsnCode === '6815.99.10')
         ? { ...item, hsnCode: customer.hsnCode || '' }
         : item)
     }));
@@ -264,7 +309,7 @@ export default function ReportForm() {
           panNo: savedCustomer.panNo || '', state: savedCustomer.state || '',
           stateCode: savedCustomer.stateCode || '', phone: savedCustomer.phone || ''
         },
-        lineItems: previous.lineItems.map((item, index) => index === 0 && !item.hsnCode
+        lineItems: previous.lineItems.map((item, index) => index === 0 && (!item.hsnCode || item.hsnCode === '6815.99.10')
           ? { ...item, hsnCode: savedCustomer.hsnCode || '' }
           : item)
       }));
@@ -287,7 +332,7 @@ export default function ReportForm() {
       ...prev,
       lineItems: [
         ...prev.lineItems,
-        { description: '', hsnCode: '', quantity: 1, uom: 'NOS', rate: 0, amount: 0 }
+        { description: '', hsnCode: '6815.99.10', quantity: 1, uom: 'NOS', rate: 0, amount: 0 }
       ]
     }));
   };
@@ -574,9 +619,10 @@ export default function ReportForm() {
         <div className="card" style={{ marginTop: '32px' }}>
           <div className="card-header">
             <h3>Line Items</h3>
-            <button type="button" className="btn btn-outline btn-sm" onClick={addLineItem}>
-              <Plus size={16} /> Add Item
-            </button>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <button type="button" className="btn btn-outline btn-sm" onClick={() => openItemModal()}><Settings size={16} /> Saved Items</button>
+              <button type="button" className="btn btn-outline btn-sm" onClick={addLineItem}><Plus size={16} /> Add Item</button>
+            </div>
           </div>
           
           <div className="table-wrapper line-items-wrapper">
@@ -596,6 +642,10 @@ export default function ReportForm() {
                 {formData.lineItems.map((item, index) => (
                   <tr key={index}>
                     <td data-label="Description of goods" style={{ padding: '8px' }}>
+                      <select className="form-select" defaultValue="" onChange={(e) => applySavedItem(index, e.target.value)} style={{ marginBottom: '8px' }}>
+                        <option value="">Use a saved item description</option>
+                        {savedItems.map((savedItem) => <option value={savedItem._id} key={savedItem._id}>{savedItem.description}</option>)}
+                      </select>
                       <textarea
                         className="form-input"
                         style={{ minHeight: '40px', resize: 'vertical' }}
@@ -803,6 +853,23 @@ export default function ReportForm() {
                   <button type="button" className="btn btn-ghost" onClick={() => setShowCustomerModal(false)}>Cancel</button>
                   <button type="submit" className="btn btn-primary" disabled={savingCustomer}>{savingCustomer ? 'Saving...' : 'Save Customer Details'}</button>
                 </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+      {showItemModal && (
+        <div className="modal-overlay" onClick={() => setShowItemModal(false)}>
+          <div className="modal" onClick={(event) => event.stopPropagation()}>
+            <div className="modal-header"><h3>{editingItemId ? 'Edit Saved Item' : 'Save Item Description'}</h3><button type="button" className="modal-close" onClick={() => setShowItemModal(false)}><X size={18} /></button></div>
+            <div className="modal-body">
+              <p className="text-muted" style={{ marginBottom: '20px' }}>Saved items fill the description, HSN/SAC, UOM, and rate for new invoice lines. Existing invoices remain unchanged.</p>
+              {savedItems.length > 0 && <div className="form-group"><label className="form-label">Edit an existing item</label><select className="form-select" value={editingItemId || ''} onChange={(e) => openItemModal(savedItems.find((item) => item._id === e.target.value) || null)}><option value="">Add a new saved item</option>{savedItems.map((savedItem) => <option value={savedItem._id} key={savedItem._id}>{savedItem.description}</option>)}</select></div>}
+              <form onSubmit={saveItem}>
+                <div className="form-group"><label className="form-label">Item description</label><textarea className="form-textarea" rows={3} value={itemDraft.description} onChange={(e) => setItemDraft({ ...itemDraft, description: e.target.value })} required /></div>
+                <div className="form-row"><div className="form-group"><label className="form-label">HSN / SAC</label><input className="form-input" value={itemDraft.hsnCode} onChange={(e) => setItemDraft({ ...itemDraft, hsnCode: e.target.value })} /></div><div className="form-group"><label className="form-label">UOM</label><input className="form-input" value={itemDraft.uom} onChange={(e) => setItemDraft({ ...itemDraft, uom: e.target.value })} /></div></div>
+                <div className="form-group"><label className="form-label">Default rate (₹)</label><input className="form-input" type="number" min="0" step="0.01" value={itemDraft.defaultRate} onChange={(e) => setItemDraft({ ...itemDraft, defaultRate: e.target.value })} /></div>
+                <div className="modal-actions">{editingItemId && <button type="button" className="btn btn-ghost text-danger" onClick={deleteItem}>Delete Item</button>}<button type="button" className="btn btn-ghost" onClick={() => setShowItemModal(false)}>Cancel</button><button type="submit" className="btn btn-primary" disabled={savingItem}>{savingItem ? 'Saving...' : 'Save Item'}</button></div>
               </form>
             </div>
           </div>

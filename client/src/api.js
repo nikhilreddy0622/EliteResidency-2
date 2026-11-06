@@ -61,4 +61,11 @@ export const customerAPI = {
   update: (id, data) => API.put(`/customers/${id}`, data)
 };
 
+export const savedItemAPI = {
+  getAll: (search = '') => API.get('/saved-items', { params: search ? { search } : {} }),
+  save: (data) => API.post('/saved-items', data),
+  update: (id, data) => API.put(`/saved-items/${id}`, data),
+  delete: (id) => API.delete(`/saved-items/${id}`)
+};
+
 export default API;

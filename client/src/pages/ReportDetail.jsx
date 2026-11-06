@@ -209,23 +209,23 @@ export default function ReportDetail() {
           </div>
 
           {/* Party Details Section */}
-          <div className="invoice-party-section" style={{ display: 'flex', border: '1px solid black', borderBottom: 'none', minHeight: '120px' }}>
+          <div className="invoice-party-section" style={{ display: 'flex', border: '1px solid black', borderBottom: 'none' }}>
             <div style={{ width: '60%', padding: '8px', display: 'flex', flexDirection: 'column', gap: '8px', fontWeight: 'bold' }}>
               <div>NAME OF THE PARTY: {report.partyDetails?.name}</div>
               <div>PARTY ADDRESS: {report.partyDetails?.address}</div>
               <div style={{ paddingLeft: '40px' }}>{report.partyDetails?.state} State, Pin Code: {report.partyDetails?.stateCode}, Phone: {report.partyDetails?.phone}</div>
-              <div style={{ marginTop: 'auto' }}>
-                <div>HSN CODE : {report.lineItems?.[0]?.hsnCode || ''}</div>
+              <div className="invoice-party-codes" style={{ marginTop: 'auto' }}>
+                <div>HSN CODE : {report.lineItems?.[0]?.hsnCode || '6815.99.10'}</div>
                 <div>PARTY GSTIN: {report.invoiceType === 'non_gst' ? 'NILL' : (report.partyDetails?.gstin || 'NILL')}</div>
                 <div>PAN NO : {report.partyDetails?.panNo || (report.partyDetails?.gstin ? report.partyDetails.gstin.substring(2, 12) : '')}</div>
               </div>
             </div>
-            <div style={{ width: '40%', display: 'flex', flexDirection: 'column', alignItems: 'center', fontWeight: 'bold', paddingTop: '8px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', padding: '0 20px' }}>
-                <div>PO. NO. {report.poNumber || ''}</div>
+            <div className="invoice-po-section" style={{ width: '40%', display: 'flex', fontWeight: 'bold', padding: '8px 16px' }}>
+              <div style={{ width: '56%' }}>PO. NO. {report.poNumber || ''}</div>
+              <div style={{ width: '44%', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <div>VENDOR CODE: {report.companyDetails?.vendorCode || '1021036'}</div>
+                <div>VEHICLE NO.: {report.vehicleNo || '-'}</div>
               </div>
-              <div style={{ marginTop: '8px' }}>{report.vehicleNo || ''}</div>
             </div>
           </div>
 
@@ -242,7 +242,7 @@ export default function ReportDetail() {
             </thead>
             <tbody>
               {report.lineItems?.map((item, i) => (
-                <tr key={i} style={{ borderBottom: i === report.lineItems.length - 1 ? '1px solid black' : 'none' }}>
+                <tr key={i} className="invoice-item-row" style={{ borderBottom: i === report.lineItems.length - 1 ? '1px solid black' : 'none', height: report.lineItems.length === 1 ? '220px' : undefined }}>
                   <td style={{ borderRight: '1px solid black', padding: '8px', textAlign: 'center', fontWeight: 'bold', verticalAlign: 'top' }}>{i + 1}</td>
                   <td style={{ borderRight: '1px solid black', padding: '8px', fontWeight: 'bold', verticalAlign: 'top', whiteSpace: 'pre-wrap' }}>
                     {item.description}
@@ -323,21 +323,21 @@ export default function ReportDetail() {
           </div>
 
           {/* Bank & Signature */}
-          <div style={{ display: 'flex', border: '1px solid black', fontWeight: 'bold' }}>
-            <div style={{ width: '50%', padding: '8px', borderRight: '1px solid black', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div className="invoice-bank-section" style={{ display: 'flex', border: '1px solid black', borderBottom: 'none', fontWeight: 'bold' }}>
+            <div style={{ width: '50%', padding: '10px', borderRight: '1px solid black', display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <div style={{ textDecoration: 'underline', textAlign: 'center' }}>BANK DETAILS</div>
               <div>{report.companyDetails?.name}</div>
               <div>BANK A/C NO : {report.bankDetails?.accountNo || '22962000000396'}</div>
               <div>RTGS/IFSC CODE : {report.bankDetails?.ifscCode || 'HDFC0002296'}</div>
               <div>{report.bankDetails?.bankName || 'HDFC BANK'}</div>
               <div>{report.bankDetails?.branch || 'BHADRACHALAM -507111'}</div>
-              <div style={{ marginTop: 'auto' }}>NOTE: DETAILS SHEET ENCLOSED HERE WITH</div>
             </div>
-            <div style={{ width: '50%', padding: '8px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ width: '50%', padding: '10px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>For, {report.companyDetails?.name}</div>
               <div style={{ marginTop: '60px' }}>AUTHORISED SIGNATURE</div>
             </div>
           </div>
+          <div className="invoice-footer-note" style={{ border: '1px solid black', padding: '8px 10px', fontWeight: 'bold' }}>NOTE: DETAILS SHEET ENCLOSED HERE WITH</div>
         </div>
         </div>
       </div>

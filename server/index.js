@@ -8,6 +8,7 @@ const authRoutes = require('./routes/auth');
 const reportRoutes = require('./routes/reports');
 const auditLogRoutes = require('./routes/auditLogs');
 const customerRoutes = require('./routes/customers');
+const savedItemRoutes = require('./routes/savedItems');
 const { seedCustomers } = require('./seedCustomers');
 const Report = require('./models/Report');
 
@@ -32,6 +33,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/audit-logs', auditLogRoutes);
 app.use('/api/customers', customerRoutes);
+app.use('/api/saved-items', savedItemRoutes);
 
 // Root & Health check
 app.get('/', (req, res) => {
