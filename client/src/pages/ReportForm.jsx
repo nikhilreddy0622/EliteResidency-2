@@ -155,9 +155,9 @@ export default function ReportForm() {
     const sgstAmount = (totalAmount * (parseFloat(data.taxDetails.sgstRate) || 0)) / 100;
     const igstAmount = (totalAmount * (parseFloat(data.taxDetails.igstRate) || 0)) / 100;
 
-    const grandTotal = data.invoiceType === 'gst_returnable'
-      ? totalAmount
-      : Math.round((totalAmount + cgstAmount + sgstAmount + igstAmount) * 100) / 100;
+    // The invoice total always includes calculated GST. "Tax returnable"
+    // affects the printed tax notice, not the financial total.
+    const grandTotal = Math.round((totalAmount + cgstAmount + sgstAmount + igstAmount) * 100) / 100;
 
     // Amount in words
     let amountInWords = '';

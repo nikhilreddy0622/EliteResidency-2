@@ -33,9 +33,10 @@ const buildCalculatedInvoice = (input) => {
   const totalAmount = Number(lineItems.reduce((sum, item) => sum + item.amount, 0).toFixed(2));
   const cgstAmount = Number((totalAmount * config.cgstRate / 100).toFixed(2));
   const sgstAmount = Number((totalAmount * config.sgstRate / 100).toFixed(2));
-  const grandTotal = config.taxReturnable
-    ? totalAmount
-    : Math.round((totalAmount + cgstAmount + sgstAmount) * 100) / 100;
+  // GST remains part of the invoice value for every GST template, including
+  // reverse-charge/returnable templates. The template controls the notice,
+  // not whether the calculated tax is excluded from the payable total.
+  const grandTotal = Math.round((totalAmount + cgstAmount + sgstAmount) * 100) / 100;
   const paidAmount = Math.min(Math.max(Number(input.paidAmount) || 0, 0), grandTotal);
   const balanceAmount = Number((grandTotal - paidAmount).toFixed(2));
   const paymentStatus = paidAmount === 0 ? 'pending' : balanceAmount === 0 ? 'paid' : 'partial';
@@ -57,6 +58,19 @@ const buildCalculatedInvoice = (input) => {
     balanceAmount,
     paymentStatus
   };
+};
+
+// Invoices created before the GST-total correction can still be opened and
+// printed safely. Repair their derived values the first time they are viewed.
+const repairStoredTotals = async (report) => {
+  const recalculated = buildCalculatedInvoice(report.toObject());
+  const derivedFields = ['lineItems', 'totalAmount', 'cgstRate', 'cgstAmount', 'sgstRate', 'sgstAmount', 'igstRate', 'igstAmount', 'grandTotal', 'amountInWords', 'paidAmount', 'balanceAmount', 'paymentStatus'];
+  const isDifferent = derivedFields.some((field) => JSON.stringify(report[field]) !== JSON.stringify(recalculated[field]));
+  if (!isDifferent) return report;
+
+  derivedFields.forEach((field) => { report[field] = recalculated[field]; });
+  await report.save();
+  return report;
 };
 
 const saveCustomerDetails = async (partyDetails, lineItems, userId) => {
@@ -293,6 +307,8 @@ router.get('/:id', protect, async (req, res) => {
     if (!report) {
       return res.status(404).json({ success: false, message: 'Report not found' });
     }
+
+    await repairStoredTotals(report);
 
     res.json({ success: true, data: report });
   } catch (err) {
