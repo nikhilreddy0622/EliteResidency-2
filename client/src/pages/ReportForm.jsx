@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { customerAPI, reportAPI, savedItemAPI } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'react-toastify';
-import { toWords } from 'number-to-words';
+import { amountInWords } from '../utils/amountInWords';
 import {
   Save,
   ArrowLeft,
@@ -33,7 +33,37 @@ const initialPartyDetails = {
   panNo: '',
   state: '',
   stateCode: '',
+  pinCode: '',
   phone: ''
+};
+
+const TAX_RATES = {
+  gst: { cgstRate: 9, sgstRate: 9, igstRate: 0 },
+  gst_returnable: { cgstRate: 2.5, sgstRate: 2.5, igstRate: 0 },
+  non_gst: { cgstRate: 2.5, sgstRate: 2.5, igstRate: 0 }
+};
+
+const round2 = (value) => Math.round((value + Number.EPSILON) * 100) / 100;
+const localDateString = (date = new Date()) => {
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+};
+
+// Single source of truth for every figure on the form. Totals are derived from
+// the line items and invoice type on each render (same rounding as the server),
+// so GST can never be left out of the total by a stale state update.
+const computeTotals = (data) => {
+  const rates = TAX_RATES[data.invoiceType] || TAX_RATES.gst;
+  const lineItems = data.lineItems.map((item) => ({
+    ...item,
+    amount: round2((parseFloat(item.quantity) || 0) * (parseFloat(item.rate) || 0))
+  }));
+  const totalAmount = round2(lineItems.reduce((sum, item) => sum + item.amount, 0));
+  const cgstAmount = round2((totalAmount * rates.cgstRate) / 100);
+  const sgstAmount = round2((totalAmount * rates.sgstRate) / 100);
+  const igstAmount = round2((totalAmount * rates.igstRate) / 100);
+  const grandTotal = round2(totalAmount + cgstAmount + sgstAmount + igstAmount);
+  return { ...rates, lineItems, totalAmount, cgstAmount, sgstAmount, igstAmount, grandTotal, amountInWords: amountInWords(grandTotal) };
 };
 
 export default function ReportForm() {
@@ -57,7 +87,7 @@ export default function ReportForm() {
 
   // Form State
   const [formData, setFormData] = useState({
-    invoiceDate: new Date().toISOString().split('T')[0],
+    invoiceDate: localDateString(),
     invoiceType: 'gst',
     poNumber: '',
     vehicleNo: '',
@@ -67,19 +97,10 @@ export default function ReportForm() {
     lineItems: [
       { description: '', hsnCode: '6815.99.10', quantity: 1, uom: 'NOS', rate: 0, amount: 0 }
     ],
-    taxDetails: {
-      cgstRate: 9,
-      cgstAmount: 0,
-      sgstRate: 9,
-      sgstAmount: 0,
-      igstRate: 0,
-      igstAmount: 0
-    },
-    totalAmount: 0,
-    grandTotal: 0,
-    amountInWords: '',
     notes: ''
   });
+
+  const totals = computeTotals(formData);
 
   useEffect(() => {
     if (isEdit) {
@@ -118,19 +139,9 @@ export default function ReportForm() {
       
       // Format date for input
       if (fetchedData.invoiceDate) {
-        fetchedData.invoiceDate = new Date(fetchedData.invoiceDate).toISOString().split('T')[0];
+        fetchedData.invoiceDate = localDateString(new Date(fetchedData.invoiceDate));
       }
 
-      // Remap flat taxes to nested object for form
-      fetchedData.taxDetails = {
-        cgstRate: fetchedData.cgstRate || 0,
-        cgstAmount: fetchedData.cgstAmount || 0,
-        sgstRate: fetchedData.sgstRate || 0,
-        sgstAmount: fetchedData.sgstAmount || 0,
-        igstRate: fetchedData.igstRate || 0,
-        igstAmount: fetchedData.igstAmount || 0,
-      };
-      
       setFormData(fetchedData);
     } catch (err) {
       toast.error('Failed to load report data');
@@ -140,85 +151,26 @@ export default function ReportForm() {
     }
   };
 
-  const calculateTotals = (data = formData) => {
-    let totalAmount = 0;
-    
-    // Calculate line items
-    const updatedLineItems = data.lineItems.map(item => {
-      const amount = (parseFloat(item.quantity) || 0) * (parseFloat(item.rate) || 0);
-      totalAmount += amount;
-      return { ...item, amount };
-    });
-
-    // Calculate taxes
-    const cgstAmount = (totalAmount * (parseFloat(data.taxDetails.cgstRate) || 0)) / 100;
-    const sgstAmount = (totalAmount * (parseFloat(data.taxDetails.sgstRate) || 0)) / 100;
-    const igstAmount = (totalAmount * (parseFloat(data.taxDetails.igstRate) || 0)) / 100;
-
-    // The invoice total always includes calculated GST. "Tax returnable"
-    // affects the printed tax notice, not the financial total.
-    const grandTotal = Math.round((totalAmount + cgstAmount + sgstAmount + igstAmount) * 100) / 100;
-
-    // Amount in words
-    let amountInWords = '';
-    try {
-      amountInWords = toWords(grandTotal).replace(/-/g, ' ').toUpperCase() + ' RUPEES ONLY';
-    } catch (e) {
-      amountInWords = '';
-    }
-
-    setFormData({
-      ...data,
-      lineItems: updatedLineItems,
-      totalAmount,
-      taxDetails: {
-        ...data.taxDetails,
-        cgstAmount,
-        sgstAmount,
-        igstAmount
-      },
-      grandTotal,
-      amountInWords
-    });
-  };
-
   // Generic handle change for nested objects
   const handleChange = (section, field, value) => {
-    if (section) {
-      setFormData(prev => ({
-        ...prev,
-        [section]: {
-          ...prev[section],
-          [field]: value
-        }
-      }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        [field]: value
-      }));
-    }
+    setFormData((prev) => (section
+      ? { ...prev, [section]: { ...prev[section], [field]: value } }
+      : { ...prev, [field]: value }));
   };
 
-  // Trigger calculation when relevant fields change
-  useEffect(() => {
-    // We only want to trigger this when rates change, as line items have their own handlers
-    calculateTotals();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.taxDetails.cgstRate, formData.taxDetails.sgstRate, formData.taxDetails.igstRate]);
-
-  const handleLineItemChange = (index, field, value) => {
-    const newLineItems = [...formData.lineItems];
-    newLineItems[index][field] = value;
-    calculateTotals({ ...formData, lineItems: newLineItems });
+  const updateLineItem = (index, changes) => {
+    setFormData((prev) => ({
+      ...prev,
+      lineItems: prev.lineItems.map((item, i) => (i === index ? { ...item, ...changes } : item))
+    }));
   };
+
+  const handleLineItemChange = (index, field, value) => updateLineItem(index, { [field]: value });
 
   const applySavedItem = (index, itemId) => {
     const savedItem = savedItems.find((item) => item._id === itemId);
     if (!savedItem) return;
-    const lineItems = [...formData.lineItems];
-    lineItems[index] = { ...lineItems[index], description: savedItem.description, hsnCode: savedItem.hsnCode || '6815.99.10', uom: savedItem.uom || 'NOS', rate: savedItem.defaultRate ?? 0 };
-    calculateTotals({ ...formData, lineItems });
+    updateLineItem(index, { description: savedItem.description, hsnCode: savedItem.hsnCode || '6815.99.10', uom: savedItem.uom || 'NOS', rate: savedItem.defaultRate ?? 0 });
   };
 
   const openItemModal = (item = null) => {
@@ -262,6 +214,7 @@ export default function ReportForm() {
         panNo: customer.panNo || '',
         state: customer.state || '',
         stateCode: customer.stateCode || '',
+        pinCode: customer.pinCode || '',
         phone: customer.phone || ''
       },
       lineItems: previous.lineItems.map((item, index) => index === 0 && (!item.hsnCode || item.hsnCode === '6815.99.10')
@@ -307,7 +260,7 @@ export default function ReportForm() {
           ...previous.partyDetails,
           name: savedCustomer.name || '', address: savedCustomer.address || '', gstin: savedCustomer.gstin || '',
           panNo: savedCustomer.panNo || '', state: savedCustomer.state || '',
-          stateCode: savedCustomer.stateCode || '', phone: savedCustomer.phone || ''
+          stateCode: savedCustomer.stateCode || '', pinCode: savedCustomer.pinCode || '', phone: savedCustomer.phone || ''
         },
         lineItems: previous.lineItems.map((item, index) => index === 0 && (!item.hsnCode || item.hsnCode === '6815.99.10')
           ? { ...item, hsnCode: savedCustomer.hsnCode || '' }
@@ -323,8 +276,7 @@ export default function ReportForm() {
   };
 
   const handleInvoiceTypeChange = (invoiceType) => {
-    const rates = invoiceType === 'gst' ? { cgstRate: 9, sgstRate: 9, igstRate: 0 } : { cgstRate: 2.5, sgstRate: 2.5, igstRate: 0 };
-    calculateTotals({ ...formData, invoiceType, taxDetails: { ...formData.taxDetails, ...rates } });
+    setFormData((prev) => ({ ...prev, invoiceType }));
   };
 
   const addLineItem = () => {
@@ -338,9 +290,9 @@ export default function ReportForm() {
   };
 
   const removeLineItem = (index) => {
-    if (formData.lineItems.length === 1) return;
-    const newLineItems = formData.lineItems.filter((_, i) => i !== index);
-    calculateTotals({ ...formData, lineItems: newLineItems });
+    setFormData((prev) => (prev.lineItems.length === 1
+      ? prev
+      : { ...prev, lineItems: prev.lineItems.filter((_, i) => i !== index) }));
   };
 
   const handleSubmit = async (e) => {
@@ -354,7 +306,7 @@ export default function ReportForm() {
 
     const payload = {
       ...formData,
-      lineItems: formData.lineItems.map((item, index) => ({
+      lineItems: totals.lineItems.map((item, index) => ({
         ...item,
         description: item.description.trim(),
         hsnCode: item.hsnCode?.trim(),
@@ -366,14 +318,16 @@ export default function ReportForm() {
         ...formData.companyDetails,
         panNo: formData.companyDetails.panNo || initialCompanyDetails.panNo
       },
-      cgstRate: formData.taxDetails.cgstRate,
-      cgstAmount: formData.taxDetails.cgstAmount,
-      sgstRate: formData.taxDetails.sgstRate,
-      sgstAmount: formData.taxDetails.sgstAmount,
-      igstRate: formData.taxDetails.igstRate,
-      igstAmount: formData.taxDetails.igstAmount,
+      totalAmount: totals.totalAmount,
+      cgstRate: totals.cgstRate,
+      cgstAmount: totals.cgstAmount,
+      sgstRate: totals.sgstRate,
+      sgstAmount: totals.sgstAmount,
+      igstRate: totals.igstRate,
+      igstAmount: totals.igstAmount,
+      grandTotal: totals.grandTotal,
+      amountInWords: totals.amountInWords
     };
-    delete payload.taxDetails;
 
     try {
       if (isEdit) {
@@ -415,15 +369,15 @@ export default function ReportForm() {
             <p style={{ marginLeft: '40px' }}>Fill in the details to generate a professional tax invoice.</p>
           </div>
           <div style={{ display: 'flex', gap: '12px' }}>
-            <button className="btn btn-outline" onClick={() => navigate('/reports')}>Cancel</button>
-            <button className="btn btn-primary" onClick={handleSubmit} disabled={loading}>
+            <button type="button" className="btn btn-outline" onClick={() => navigate('/reports')}>Cancel</button>
+            <button type="submit" form="invoice-form" className="btn btn-primary" disabled={loading}>
               <Save size={16} /> {loading ? 'Saving...' : 'Save Invoice'}
             </button>
           </div>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="form-container">
+      <form id="invoice-form" onSubmit={handleSubmit} className="form-container">
         
         {/* Basic Info & Company */}
         <div className="responsive-grid">
@@ -452,7 +406,7 @@ export default function ReportForm() {
                 <option value="gst_returnable">GST Invoice — Tax Returnable (2.5% + 2.5%)</option>
                 <option value="non_gst">Non-GST Invoice — CGST 2.5% + SGST 2.5%</option>
               </select>
-              <small className="form-hint">{formData.invoiceType === 'gst_returnable' ? 'Tax is displayed separately and is not added to the total, matching the supplied template.' : 'Tax is calculated from the selected template.'}</small>
+              <small className="form-hint">{formData.invoiceType === 'gst_returnable' ? 'GST is added to the total; the invoice also prints the reverse-charge notice.' : 'GST is calculated from the selected template and added to the total.'}</small>
             </div>
             <div className="form-group">
               <label className="form-label">PO Number (Optional)</label>
@@ -572,14 +526,25 @@ export default function ReportForm() {
               </div>
             </div>
             <div className="form-group">
-              <label className="form-label">Phone Number (10 digits)</label>
+              <label className="form-label">Pin Code</label>
               <input
                 type="text"
                 className="form-input"
-                placeholder="9876543210"
+                placeholder="507128"
+                inputMode="numeric"
+                value={formData.partyDetails.pinCode || ''}
+                onChange={(e) => handleChange('partyDetails', 'pinCode', e.target.value.replace(/\D/g, '').slice(0, 6))}
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Phone Number (with STD code if landline)</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="08746-243332"
                 value={formData.partyDetails.phone}
                 onChange={(e) => {
-                  const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                  const val = e.target.value.replace(/[^\d\s,+-]/g, '').slice(0, 25);
                   handleChange('partyDetails', 'phone', val);
                 }}
               />
@@ -696,7 +661,7 @@ export default function ReportForm() {
                     </td>
                     <td data-label="Amount (₹)" style={{ padding: '8px' }}>
                       <div className="form-input" style={{ background: 'var(--bg-secondary)', color: 'var(--text-muted)' }}>
-                        {item.amount.toFixed(2)}
+                        {totals.lineItems[index].amount.toFixed(2)}
                       </div>
                     </td>
                     <td data-label="" className="line-item-remove" style={{ padding: '8px', textAlign: 'center' }}>
@@ -735,7 +700,7 @@ export default function ReportForm() {
                 <input
                   type="number"
                   className="form-input"
-                  value={formData.taxDetails.cgstRate}
+                  value={totals.cgstRate}
                   readOnly
                 />
               </div>
@@ -744,7 +709,7 @@ export default function ReportForm() {
                 <input
                   type="number"
                   className="form-input"
-                  value={formData.taxDetails.sgstRate}
+                  value={totals.sgstRate}
                   readOnly
                 />
               </div>
@@ -754,7 +719,7 @@ export default function ReportForm() {
               <input
                 type="number"
                 className="form-input"
-                value={formData.taxDetails.igstRate}
+                value={totals.igstRate}
                 readOnly
               />
             </div>
@@ -769,27 +734,27 @@ export default function ReportForm() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', fontSize: '0.95rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
                 <span>Total Taxable Value</span>
-                <span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>₹ {(formData.totalAmount || 0).toFixed(2)}</span>
+                <span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>₹ {totals.totalAmount.toFixed(2)}</span>
               </div>
               
-              {formData.taxDetails.cgstAmount > 0 && (
+              {totals.cgstAmount > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
-                  <span>Add: CGST @ {formData.taxDetails.cgstRate}%</span>
-                  <span>₹ {formData.taxDetails.cgstAmount.toFixed(2)}</span>
+                  <span>Add: CGST @ {totals.cgstRate}%</span>
+                  <span>₹ {totals.cgstAmount.toFixed(2)}</span>
                 </div>
               )}
               
-              {formData.taxDetails.sgstAmount > 0 && (
+              {totals.sgstAmount > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
-                  <span>Add: SGST @ {formData.taxDetails.sgstRate}%</span>
-                  <span>₹ {formData.taxDetails.sgstAmount.toFixed(2)}</span>
+                  <span>Add: SGST @ {totals.sgstRate}%</span>
+                  <span>₹ {totals.sgstAmount.toFixed(2)}</span>
                 </div>
               )}
 
-              {formData.taxDetails.igstAmount > 0 && (
+              {totals.igstAmount > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
-                  <span>Add: IGST @ {formData.taxDetails.igstRate}%</span>
-                  <span>₹ {formData.taxDetails.igstAmount.toFixed(2)}</span>
+                  <span>Add: IGST @ {totals.igstRate}%</span>
+                  <span>₹ {totals.igstAmount.toFixed(2)}</span>
                 </div>
               )}
 
@@ -804,11 +769,11 @@ export default function ReportForm() {
                 color: 'var(--accent-primary)'
               }}>
                 <span>Total Invoice Value</span>
-                <span>₹ {(formData.grandTotal || 0).toFixed(2)}</span>
+                <span>₹ {totals.grandTotal.toFixed(2)}</span>
               </div>
 
               <div style={{ marginTop: '8px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                <strong>Amount in Words: </strong> {formData.amountInWords}
+                <strong>Amount in Words: </strong> {totals.amountInWords}
               </div>
             </div>
           </div>
@@ -842,6 +807,7 @@ export default function ReportForm() {
                 </div>
                 <div className="form-row">
                   <div className="form-group"><label className="form-label">PAN No.</label><input className="form-input" value={customerDraft.panNo || ''} onChange={(e) => setCustomerDraft({ ...customerDraft, panNo: e.target.value.toUpperCase() })} /></div>
+                  <div className="form-group"><label className="form-label">Pin Code</label><input className="form-input" value={customerDraft.pinCode || ''} onChange={(e) => setCustomerDraft({ ...customerDraft, pinCode: e.target.value.replace(/\D/g, '').slice(0, 6) })} /></div>
                   <div className="form-group"><label className="form-label">Phone</label><input className="form-input" value={customerDraft.phone || ''} onChange={(e) => setCustomerDraft({ ...customerDraft, phone: e.target.value })} /></div>
                 </div>
                 <div className="form-row">

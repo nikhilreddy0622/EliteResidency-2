@@ -65,6 +65,7 @@ const reportSchema = new mongoose.Schema({
     panNo: { type: String, trim: true },
     state: { type: String, trim: true },
     stateCode: { type: String, trim: true },
+    pinCode: { type: String, trim: true },
     poNumber: { type: String, trim: true },
     vendorCode: { type: String, trim: true },
     vehicleNo: { type: String, trim: true },

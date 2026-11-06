@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { format } from 'date-fns';
 import { toast } from 'react-toastify';
 import { useReactToPrint } from 'react-to-print';
+import InvoicePaper from '../components/InvoicePaper';
 import {
   ArrowLeft,
   Printer,
@@ -25,7 +26,8 @@ export default function ReportDetail() {
 
   const handlePrint = useReactToPrint({
     contentRef: printRef,
-    documentTitle: report ? `Invoice_${report.invoiceNumber}` : 'Invoice',
+    documentTitle: report ? `Invoice_${report.invoiceNumber.replace(/[\\/]/g, '-')}` : 'Invoice',
+    pageStyle: '@page { size: A4 portrait; margin: 5mm; } html, body { margin: 0; padding: 0; background: #fff; }',
   });
 
   useEffect(() => {
@@ -174,171 +176,8 @@ export default function ReportDetail() {
       {/* Print Preview Container */}
       <div style={{ marginTop: '32px' }}>
         <h3 style={{ marginBottom: '16px' }}>Invoice Preview</h3>
-        <div className="invoice-preview-shell">
-          <div ref={printRef} className="invoice-paper">
-          
-          {/* Top Bar 1 */}
-          <div className="invoice-top-row" style={{ display: 'flex', border: '1px solid black', borderBottom: 'none', color: '#0d8aab', fontWeight: 'bold' }}>
-            <div style={{ width: '33.33%', padding: '4px 8px', borderRight: '1px solid black' }}>GSTIN.{report.companyDetails?.gstin}</div>
-            <div style={{ width: '33.33%', padding: '4px 8px', borderRight: '1px solid black', textAlign: 'center' }}>TAX INVOICE</div>
-            <div style={{ width: '33.33%', padding: '4px 8px' }}>PAN NO. {report.companyDetails?.panNo}</div>
-          </div>
-          
-          {/* Top Bar 2 */}
-          <div className="invoice-top-row" style={{ display: 'flex', border: '1px solid black', borderBottom: 'none', color: '#0d8aab', fontWeight: 'bold' }}>
-            <div style={{ width: '33.33%', padding: '4px 8px', borderRight: '1px solid black' }}>STATE CODE. {report.companyDetails?.stateCode}</div>
-            <div style={{ width: '33.33%', padding: '4px 8px', borderRight: '1px solid black', textAlign: 'center' }}>DATE. {format(new Date(report.invoiceDate), 'dd.MM.yyyy')}</div>
-            <div style={{ width: '33.33%', padding: '4px 8px' }}>INVOICE NO. {report.invoiceNumber}</div>
-          </div>
-
-          {/* Header Section */}
-          <div className="invoice-company-header" style={{ padding: '12px 8px', textAlign: 'center', border: '1px solid black', borderBottom: 'none' }}>
-            <h1 style={{ margin: '0 0 8px 0', color: '#d32f2f', fontFamily: '"Times New Roman", Times, serif', fontSize: '28px', fontWeight: 'bold' }}>
-              {report.companyDetails?.name}
-            </h1>
-            <div style={{ color: '#2e7d32', fontWeight: 'bold', fontSize: '12px', lineHeight: '1.4' }}>
-              {(report.companyDetails?.address || '').split('\n').filter(Boolean).map((line, i) => <div key={i}>{line}</div>)}
-            </div>
-          </div>
-
-          {/* Delivery Challan Bar */}
-          <div className="invoice-delivery-row" style={{ display: 'flex', border: '1px solid black', borderBottom: 'none', color: '#0d8aab', fontWeight: 'bold', padding: '4px 8px' }}>
-            <div style={{ width: '33.33%' }}>DELIVERY CHALLAN NO.: {report.deliveryChallanNo || '-'}</div>
-            <div style={{ width: '33.33%', textAlign: 'center' }}>{report.billType || 'CASH/CREDIT BILL'}</div>
-            <div style={{ width: '33.33%', textAlign: 'right' }}>E-mail : {report.companyDetails?.email || 'bfbprasad@gmail.com'}</div>
-          </div>
-
-          {/* Party Details Section */}
-          <div className="invoice-party-section" style={{ display: 'flex', border: '1px solid black', borderBottom: 'none' }}>
-            <div style={{ width: '60%', padding: '8px', display: 'flex', flexDirection: 'column', gap: '8px', fontWeight: 'bold' }}>
-              <div>NAME OF THE PARTY: {report.partyDetails?.name}</div>
-              <div>PARTY ADDRESS: {report.partyDetails?.address}</div>
-              <div style={{ paddingLeft: '40px' }}>{report.partyDetails?.state} State, Pin Code: {report.partyDetails?.stateCode}, Phone: {report.partyDetails?.phone}</div>
-              <div className="invoice-party-codes" style={{ marginTop: 'auto' }}>
-                <div>HSN CODE : {report.lineItems?.[0]?.hsnCode || '6815.99.10'}</div>
-                <div>PARTY GSTIN: {report.invoiceType === 'non_gst' ? 'NILL' : (report.partyDetails?.gstin || 'NILL')}</div>
-                <div>PAN NO : {report.partyDetails?.panNo || (report.partyDetails?.gstin ? report.partyDetails.gstin.substring(2, 12) : '')}</div>
-              </div>
-            </div>
-            <div className="invoice-po-section" style={{ width: '40%', display: 'flex', fontWeight: 'bold', padding: '8px 16px' }}>
-              <div style={{ width: '56%' }}>PO. NO. {report.poNumber || ''}</div>
-              <div style={{ width: '44%', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <div>VENDOR CODE: {report.companyDetails?.vendorCode || '1021036'}</div>
-                <div>VEHICLE NO.: {report.vehicleNo || '-'}</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Table */}
-          <table className="invoice-items" style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid black', borderBottom: 'none' }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid black' }}>
-                <th style={{ borderRight: '1px solid black', padding: '8px', width: '6%' }}>S.NO.</th>
-                <th style={{ borderRight: '1px solid black', padding: '8px', width: '44%' }}>PRODUCT DESCRIPTION</th>
-                <th style={{ borderRight: '1px solid black', padding: '8px', width: '15%' }}>QTY IN No's</th>
-                <th style={{ borderRight: '1px solid black', padding: '8px', width: '15%' }}>RATE in Rs.</th>
-                <th style={{ padding: '8px', width: '20%' }}>AMOUNT</th>
-              </tr>
-            </thead>
-            <tbody>
-              {report.lineItems?.map((item, i) => (
-                <tr key={i} className="invoice-item-row" style={{ borderBottom: i === report.lineItems.length - 1 ? '1px solid black' : 'none', height: report.lineItems.length === 1 ? '220px' : undefined }}>
-                  <td style={{ borderRight: '1px solid black', padding: '8px', textAlign: 'center', fontWeight: 'bold', verticalAlign: 'top' }}>{i + 1}</td>
-                  <td style={{ borderRight: '1px solid black', padding: '8px', fontWeight: 'bold', verticalAlign: 'top', whiteSpace: 'pre-wrap' }}>
-                    {item.description}
-                  </td>
-                  <td style={{ borderRight: '1px solid black', padding: '8px', textAlign: 'center', fontWeight: 'bold', verticalAlign: 'top' }}>
-                    {item.quantity.toLocaleString('en-IN')}
-                  </td>
-                  <td style={{ borderRight: '1px solid black', padding: '8px', textAlign: 'center', fontWeight: 'bold', verticalAlign: 'top' }}>
-                    {item.rate.toFixed(2)}
-                  </td>
-                  <td style={{ padding: '8px', textAlign: 'center', fontWeight: 'bold', verticalAlign: 'top' }}>
-                    Rs. {item.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </td>
-                </tr>
-              ))}
-              
-              {/* Empty filler rows to push total down if needed, but we'll just let it flow */}
-              <tr className="invoice-total-row" style={{ borderBottom: '1px solid black', fontWeight: 'bold' }}>
-                <td colSpan="2" style={{ borderRight: '1px solid black', padding: '8px', textAlign: 'center' }}>TOTAL</td>
-                <td style={{ borderRight: '1px solid black', padding: '8px', textAlign: 'center' }}>
-                  {report.lineItems?.reduce((sum, item) => sum + Number(item.quantity), 0).toLocaleString('en-IN')}
-                </td>
-                <td style={{ borderRight: '1px solid black', padding: '8px', textAlign: 'center' }}>
-                  {report.lineItems?.[0]?.rate.toFixed(2)}
-                </td>
-                <td style={{ padding: '8px', textAlign: 'center' }}>
-                  Rs. {report.totalAmount?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-
-          {/* Tax Breakdown */}
-          <div className="invoice-tax-area" style={{ display: 'flex', border: '1px solid black', borderBottom: 'none', borderTop: 'none', fontWeight: 'bold' }}>
-            <div
-              className={`invoice-tax-note ${report.invoiceType === 'gst_returnable' ? 'is-reverse-charge' : ''}`}
-              style={{
-                width: '50%',
-                borderRight: '1px solid black',
-                color: report.invoiceType === 'gst_returnable' ? '#d60000' : undefined,
-                fontSize: report.invoiceType === 'gst_returnable' ? '16px' : undefined,
-                fontWeight: report.invoiceType === 'gst_returnable' ? 800 : undefined,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                textAlign: 'center'
-              }}
-            >
-              {report.invoiceType === 'gst_returnable' && '"TAX HAS TO PAID UNDER REVERSE CHARGE"'}
-            </div>
-            <div className="invoice-tax-summary" style={{ width: '50%' }}>
-              <div style={{ display: 'flex', borderBottom: '1px solid black' }}>
-                <div style={{ width: '60%', padding: '4px 8px', borderRight: '1px solid black' }}>TOTAL AMOUNT =</div>
-                <div style={{ width: '40%', padding: '4px 8px', textAlign: 'right' }}>Rs. {report.totalAmount?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-              </div>
-              <div style={{ display: 'flex', borderBottom: '1px solid black' }}>
-                <div style={{ width: '60%', padding: '4px 8px', borderRight: '1px solid black' }}>ADD CGST : {report.cgstRate}%</div>
-                <div style={{ width: '40%', padding: '4px 8px', textAlign: 'right' }}>{report.cgstAmount > 0 ? `Rs. ${report.cgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'NILL'}</div>
-              </div>
-              <div style={{ display: 'flex', borderBottom: '1px solid black' }}>
-                <div style={{ width: '60%', padding: '4px 8px', borderRight: '1px solid black' }}>ADD SGST : {report.sgstRate}%</div>
-                <div style={{ width: '40%', padding: '4px 8px', textAlign: 'right' }}>{report.sgstAmount > 0 ? `Rs. ${report.sgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'NILL'}</div>
-              </div>
-              <div style={{ display: 'flex', borderBottom: '1px solid black' }}>
-                <div style={{ width: '60%', padding: '4px 8px', borderRight: '1px solid black' }}>ADD IGST : {report.igstRate > 0 ? `${report.igstRate}%` : ''}</div>
-                <div style={{ width: '40%', padding: '4px 8px', textAlign: 'right' }}>{report.igstAmount > 0 ? `Rs. ${report.igstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'NILL'}</div>
-              </div>
-              <div style={{ display: 'flex', borderBottom: '1px solid black' }}>
-                <div style={{ width: '60%', padding: '4px 8px', borderRight: '1px solid black' }}>TOTAL</div>
-                <div style={{ width: '40%', padding: '4px 8px', textAlign: 'right' }}>Rs. {report.grandTotal?.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Amount in Words */}
-          <div className="invoice-words" style={{ padding: '4px 8px', border: '1px solid black', borderBottom: 'none', borderTop: 'none', fontWeight: 'bold' }}>
-            AMOUNT IN WORDS : {report.amountInWords}
-          </div>
-
-          {/* Bank & Signature */}
-          <div className="invoice-bank-section" style={{ display: 'flex', border: '1px solid black', borderBottom: 'none', fontWeight: 'bold' }}>
-            <div style={{ width: '50%', padding: '10px', borderRight: '1px solid black', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ textDecoration: 'underline', textAlign: 'center' }}>BANK DETAILS</div>
-              <div>{report.companyDetails?.name}</div>
-              <div>BANK A/C NO : {report.bankDetails?.accountNo || '22962000000396'}</div>
-              <div>RTGS/IFSC CODE : {report.bankDetails?.ifscCode || 'HDFC0002296'}</div>
-              <div>{report.bankDetails?.bankName || 'HDFC BANK'}</div>
-              <div>{report.bankDetails?.branch || 'BHADRACHALAM -507111'}</div>
-            </div>
-            <div style={{ width: '50%', padding: '10px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>For, {report.companyDetails?.name}</div>
-              <div style={{ marginTop: '60px' }}>AUTHORISED SIGNATURE</div>
-            </div>
-          </div>
-          <div className="invoice-footer-note" style={{ border: '1px solid black', padding: '8px 10px', fontWeight: 'bold' }}>NOTE: DETAILS SHEET ENCLOSED HERE WITH</div>
-        </div>
+        <div className="inv-shell">
+          <InvoicePaper ref={printRef} report={report} />
         </div>
       </div>
     </div>

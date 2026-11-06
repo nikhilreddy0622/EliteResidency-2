@@ -1,0 +1,86 @@
+/* Self-contained invoice styles. Everything is scoped under .inv-paper and
+   resets the app's dark-theme globals (th/td colour, padding, uppercase). */
+.inv-shell { overflow-x: auto; background: var(--bg-secondary); padding: 24px; border-radius: var(--radius-lg); }
+
+.inv-paper, .inv-paper * { box-sizing: border-box; }
+.inv-paper {
+  width: 200mm; margin: 0 auto; background: #fff; color: #000; opacity: 1;
+  font-family: "Times New Roman", Times, serif; font-size: 13.5px; line-height: 1.25; font-weight: 700;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  box-shadow: 0 4px 12px rgba(0,0,0,.5);
+}
+/* One A4 page (5mm margins => 200 x 287mm). */
+.inv-page { width: 200mm; min-height: 287mm; display: flex; flex-direction: column; border-bottom: 1px solid #000; }
+.inv-teal { color: #0d8aab !important; }
+.inv-center { text-align: center; } .inv-right { text-align: right; }
+.inv-bt { border-top: 1px solid #000; } .inv-bl { border-left: 1px solid #000; } .inv-br { border-right: 1px solid #000; }
+.inv-box { border: 1px solid #000; border-bottom: 0; }
+
+.inv-grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; }
+.inv-grid3.inv-bt + .inv-grid3.inv-bt { border-top: 1px solid #000; }
+.inv-cell { padding: 3px 8px; }
+
+.inv-header { text-align: center; padding: 8px 6px 4px; }
+.inv-company-name { color: #b71c1c !important; font-size: 29px !important; line-height: 1.1 !important; margin-bottom: 4px; }
+.inv-company-line { color: #26733b !important; font-size: 12px !important; line-height: 1.35 !important; }
+
+.inv-delivery { display: grid; grid-template-columns: 1fr 1fr 1fr; padding: 3px 8px; font-size: 12.5px !important; }
+
+.inv-party { display: grid; grid-template-columns: 1fr 92mm; min-height: 40mm; }
+.inv-party-left { padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+.inv-party-address, .inv-party-region { white-space: pre-line !important; }
+.inv-party-region { padding-left: 34px; }
+.inv-party-codes { margin-top: auto; line-height: 1.5; }
+.inv-party-right { padding: 8px 6px 8px 4px; display: grid; grid-template-columns: auto 1fr; column-gap: 10px; align-content: start; font-size: 12.5px; }
+.inv-po { white-space: nowrap; }
+.inv-codes { display: grid; grid-template-columns: auto auto auto; column-gap: 4px; row-gap: 6px; align-content: start; justify-content: start; white-space: nowrap; }
+
+/* Items table: column dividers are drawn as backgrounds so they run the full
+   height of the (flexible) item area, like the reference invoice. */
+.inv-items {
+  flex: 1 1 auto; display: flex; flex-direction: column;
+  border-left: 1px solid #000; border-right: 1px solid #000; border-top: 1px solid #000;
+  background-image: linear-gradient(#000, #000), linear-gradient(#000, #000), linear-gradient(#000, #000), linear-gradient(#000, #000);
+  background-repeat: no-repeat; background-size: 1px 100%;
+  background-position: 7% 0, 50% 0, 66% 0, 82% 0;
+}
+.inv-paper .inv-table { width: 100%; border-collapse: collapse; table-layout: fixed; background: transparent; }
+.inv-paper .inv-table tr, .inv-paper .inv-table tr:hover { background: transparent; transition: none; }
+.inv-paper .inv-table th, .inv-paper .inv-table td {
+  color: #000; background: transparent; opacity: 1; text-transform: none; letter-spacing: 0;
+  font-family: inherit; font-size: inherit; font-weight: 700; line-height: 1.2; white-space: normal;
+  border: 0; border-radius: 0; text-align: center; vertical-align: top; padding: 6px 4px;
+}
+.inv-paper .inv-table th { border-bottom: 1px solid #000; vertical-align: middle; padding: 7px 4px; }
+.inv-paper .inv-table td.inv-desc { text-align: left; padding: 6px 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.inv-paper .inv-table tr.inv-fill td { padding: 0; height: 0; }
+.inv-items-spacer { flex: 1 1 auto; }
+
+.inv-totalrow { display: grid; grid-template-columns: 50% 16% 16% 18%; border: 1px solid #000; }
+.inv-totalrow > div { padding: 6px 4px; text-align: center; }
+.inv-totalrow > div + div { border-left: 1px solid #000; }
+.inv-tr-label { text-align: center; }
+
+.inv-tax { display: grid; grid-template-columns: 50% 50%; border-left: 1px solid #000; border-right: 1px solid #000; }
+.inv-tax-note { display: flex; align-items: center; justify-content: center; text-align: center; padding: 8px; }
+.inv-tax-note.is-reverse { color: #d60000 !important; font-size: 16px !important; font-weight: 800; }
+.inv-tax-sum > div { display: grid; grid-template-columns: 60% 40%; border-bottom: 1px solid #000; min-height: 24px; align-items: center; }
+.inv-tax-sum > div > span { padding: 3px 8px; }
+.inv-tax-sum > div > span:first-child { border-right: 1px solid #000; border-left: 1px solid #000; }
+.inv-tax-sum > div > span:last-child { text-align: right; border-right: 0; }
+
+.inv-words { border-top: 0; padding: 5px 8px; border-bottom: 1px solid #000; }
+.inv-bank { display: grid; grid-template-columns: 50% 50%; min-height: 55mm; }
+.inv-bank-left { padding: 10px; border-right: 1px solid #000; display: flex; flex-direction: column; gap: 10px; }
+.inv-underline { text-decoration: underline; padding-left: 12px; }
+.inv-bank-right { padding: 10px; display: flex; flex-direction: column; justify-content: space-between; align-items: center; text-align: center; }
+.inv-bank-right > div:last-child { margin-top: 60px; margin-top: auto; padding-top: 40px; }
+.inv-note { padding: 7px 8px; }
+
+@page { size: A4 portrait; margin: 5mm; }
+@media print {
+  html, body { background: #fff !important; margin: 0; }
+  .inv-paper { box-shadow: none; margin: 0; }
+  .inv-page { min-height: 287mm; }
+  .inv-table tr, .inv-bank, .inv-tax, .inv-totalrow { break-inside: avoid; }
+}

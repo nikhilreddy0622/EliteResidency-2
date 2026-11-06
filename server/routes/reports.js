@@ -123,7 +123,7 @@ const buildReportQuery = (params, user) => {
 const detectChanges = (oldData, newData, prefix = '') => {
   const changes = [];
   const fieldsToTrack = [
-    'invoiceDate', 'deliveryChallanNo', 'billType', 'deliveryAddress',
+    'invoiceDate', 'invoiceType', 'poNumber', 'vehicleNo', 'deliveryChallanNo', 'billType', 'deliveryAddress',
     'hsnCode', 'totalAmount', 'cgstRate', 'cgstAmount', 'sgstRate',
     'sgstAmount', 'igstRate', 'igstAmount', 'grandTotal', 'amountInWords',
     'notes', 'status'
@@ -132,9 +132,11 @@ const detectChanges = (oldData, newData, prefix = '') => {
 
   for (const field of fieldsToTrack) {
     const key = prefix ? `${prefix}.${field}` : field;
+    // Dates arrive as 'YYYY-MM-DD' strings but are stored as Date objects.
+    const normalise = (value) => (field === 'invoiceDate' && value ? new Date(value).toISOString().slice(0, 10) : String(value ?? ''));
     const oldVal = oldData[field];
     const newVal = newData[field];
-    if (newVal !== undefined && String(oldVal) !== String(newVal)) {
+    if (newVal !== undefined && normalise(oldVal) !== normalise(newVal)) {
       changes.push({ field: key, oldValue: oldVal, newValue: newVal });
     }
   }
@@ -143,7 +145,7 @@ const detectChanges = (oldData, newData, prefix = '') => {
     if (newData[nested]) {
       for (const [subField, newVal] of Object.entries(newData[nested])) {
         const oldVal = oldData[nested] ? oldData[nested][subField] : undefined;
-        if (newVal !== undefined && String(oldVal) !== String(newVal)) {
+        if (newVal !== undefined && String(oldVal ?? '') !== String(newVal ?? '')) {
           changes.push({
             field: `${nested}.${subField}`,
             oldValue: oldVal,

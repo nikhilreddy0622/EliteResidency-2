@@ -9,6 +9,7 @@ const customerSchema = new mongoose.Schema({
   panNo: { type: String, trim: true, uppercase: true },
   state: { type: String, trim: true },
   stateCode: { type: String, trim: true },
+  pinCode: { type: String, trim: true },
   phone: { type: String, trim: true },
   hsnCode: { type: String, trim: true },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
