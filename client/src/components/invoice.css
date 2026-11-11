@@ -39,9 +39,10 @@
    be rasterised as a black fill by Chromium's print/PDF frame. */
 .inv-items {
   flex: 1 1 auto; display: flex; flex-direction: column;
-  border-left: 1px solid #000; border-right: 1px solid #000; border-top: 1px solid #000;
+  border-left: 1px solid #000; border-right: 1px solid #000;
   background: #fff;
 }
+.inv-items-top-rule { height: 1px; flex: 0 0 1px; width: 100%; background: #000 !important; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
 .inv-paper .inv-table { width: 100%; border-collapse: collapse; table-layout: fixed; background: transparent; }
 .inv-paper .inv-table thead, .inv-paper .inv-table tbody, .inv-paper .inv-table tr, .inv-paper .inv-table tr:hover { background: #fff !important; transition: none; }
 .inv-paper .inv-table th, .inv-paper .inv-table td {

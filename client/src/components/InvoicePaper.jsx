@@ -92,6 +92,7 @@ const InvoicePaper = forwardRef(function InvoicePaper({ report }, ref) {
 
         {/* Items — grows to fill the page so the totals always sit at the bottom */}
         <div className="inv-items">
+          <div className="inv-items-top-rule" aria-hidden="true" />
           <table className="inv-table">
             <colgroup>
               <col style={{ width: '7%' }} /><col style={{ width: '43%' }} /><col style={{ width: '16%' }} />
