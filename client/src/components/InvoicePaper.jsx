@@ -114,7 +114,9 @@ const InvoicePaper = forwardRef(function InvoicePaper({ report }, ref) {
               ))}
             </tbody>
           </table>
-          <div className="inv-items-spacer" />
+          <div className="inv-items-spacer" aria-hidden="true">
+            <span /><span /><span /><span /><span />
+          </div>
         </div>
 
         {/* TOTAL box now starts at the left edge */}

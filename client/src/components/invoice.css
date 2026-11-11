@@ -53,7 +53,10 @@
 .inv-paper .inv-table th:not(:last-child), .inv-paper .inv-table td:not(:last-child) { border-right: 1px solid #000; }
 .inv-paper .inv-table td.inv-desc { text-align: left; padding: 6px 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .inv-paper .inv-table tr.inv-fill td { padding: 0; height: 0; }
-.inv-items-spacer { flex: 1 1 auto; }
+/* The blank portion is a five-cell grid rather than a background image, so
+   each column rule remains visible and prints consistently in Chromium. */
+.inv-items-spacer { flex: 1 1 auto; min-height: 1px; display: grid; grid-template-columns: 7% 43% 16% 16% 18%; background: #fff; }
+.inv-items-spacer > span:not(:last-child) { border-right: 1px solid #000; }
 
 .inv-totalrow { display: grid; grid-template-columns: 50% 16% 16% 18%; border: 1px solid #000; }
 .inv-totalrow > div { padding: 6px 4px; text-align: center; }

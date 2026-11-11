@@ -8,12 +8,27 @@ const stateCode = (details = {}) => String(details.stateCode || '').replace(/\D/
 
 const address = (details = {}) => {
   const lines = String(details.address || '').split(/\r?\n|,/).map((line) => line.trim()).filter(Boolean);
-  return { line1: lines.shift() || '', line2: lines.join(', ') || null };
+  const line1 = lines.shift() || details.city || details.state || 'NOT AVAILABLE';
+  // The government bulk-upload schema validates Addr2 when it is supplied.
+  // Always send a usable text value instead of null or a one/two-character
+  // fragment from an older invoice.
+  const line2 = lines.join(', ') || details.city || details.state || 'NOT AVAILABLE';
+  return { line1: line1.length >= 3 ? line1 : 'NOT AVAILABLE', line2: line2.length >= 3 ? line2 : 'NOT AVAILABLE' };
 };
 
 const pin = (details = {}) => {
   const match = String(details.pinCode || details.city || details.address || '').match(/\b\d{6}\b/);
   return match ? Number(match[0]) : null;
+};
+
+const phone = (value) => {
+  const digits = String(value || '').replace(/\D/g, '');
+  return digits.length >= 6 && digits.length <= 12 ? digits : undefined;
+};
+
+const withOptionalPhone = (details, value) => {
+  const normalized = phone(value);
+  return normalized ? { ...details, Ph: normalized } : details;
 };
 
 function buildEInvoice(report) {
@@ -29,7 +44,6 @@ function buildEInvoice(report) {
   const cgstAmount = round(report.cgstAmount);
   const sgstAmount = round(report.sgstAmount);
   const igstAmount = round(report.igstAmount);
-  const totalTax = round(cgstAmount + sgstAmount + igstAmount);
 
   return {
     Version: '1.1',
@@ -41,16 +55,16 @@ function buildEInvoice(report) {
       EcmGstin: null
     },
     DocDtls: { Typ: 'INV', No: report.invoiceNumber, Dt: formatDate(report.invoiceDate) },
-    SellerDtls: {
+    SellerDtls: withOptionalPhone({
       Gstin: company.gstin || null, LglNm: company.name || null, TrdNm: company.name || null,
       Addr1: sellerAddress.line1, Addr2: sellerAddress.line2, Loc: company.city || null,
-      Pin: pin(company), Stcd: stateCode(company), Ph: company.phone || null, Em: company.email || null
-    },
-    BuyerDtls: {
+      Pin: pin(company), Stcd: stateCode(company), Em: company.email || null
+    }, company.phone),
+    BuyerDtls: withOptionalPhone({
       Gstin: party.gstin || null, LglNm: party.name || null, TrdNm: null,
       Pos: stateCode(party), Addr1: buyerAddress.line1, Addr2: buyerAddress.line2,
-      Loc: party.state || null, Pin: pin(party), Stcd: stateCode(party), Ph: party.phone || null, Em: null
-    },
+      Loc: party.state || null, Pin: pin(party), Stcd: stateCode(party), Em: null
+    }, party.phone),
     ValDtls: {
       AssVal: totalAmount, IgstVal: igstAmount, CgstVal: cgstAmount, SgstVal: sgstAmount,
       CesVal: 0, StCesVal: 0, Discount: 0, OthChrg: 0, RndOffAmt: 0, TotInvVal: round(report.grandTotal)
