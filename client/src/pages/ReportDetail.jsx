@@ -9,6 +9,7 @@ import InvoicePaper from '../components/InvoicePaper';
 import {
   ArrowLeft,
   Printer,
+  Download,
   Edit2,
   Lock
 } from 'lucide-react';
@@ -70,6 +71,20 @@ export default function ReportDetail() {
     }
   };
 
+  const downloadEInvoice = async () => {
+    try {
+      const response = await reportAPI.downloadEInvoice(report._id);
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/json' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `E-INVOICE_${report.invoiceNumber.replace(/[^a-zA-Z0-9._-]/g, '-')}.json`;
+      document.body.appendChild(link); link.click(); link.remove(); window.URL.revokeObjectURL(url);
+      toast.success('E-invoice JSON downloaded');
+    } catch (err) {
+      toast.error('Could not generate the e-invoice JSON');
+    }
+  };
+
   if (loading) {
     return (
       <div className="loading-container">
@@ -109,6 +124,9 @@ export default function ReportDetail() {
           <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
             <button className="btn btn-primary" onClick={handlePrint}>
               <Printer size={16} /> Print / PDF
+            </button>
+            <button className="btn btn-outline" onClick={downloadEInvoice}>
+              <Download size={16} /> E-Invoice JSON
             </button>
             
             {isEditable && (

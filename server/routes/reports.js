@@ -6,6 +6,7 @@ const Counter = require('../models/Counter');
 const Customer = require('../models/Customer');
 const { amountInWords } = require('../utils/amountInWords');
 const { buildGstSalesWorkbook } = require('../utils/gstSalesWorkbook');
+const { buildEInvoice } = require('../utils/eInvoice');
 const { protect, authorize } = require('../middleware/auth');
 
 const router = express.Router();
@@ -299,6 +300,23 @@ router.get('/stats', protect, async (req, res) => {
 // @route   GET /api/reports/:id
 // @desc    Get single report
 // @access  Private
+router.get('/:id/e-invoice', protect, async (req, res) => {
+  try {
+    const report = await Report.findById(req.params.id);
+    if (!report) return res.status(404).json({ success: false, message: 'Report not found' });
+
+    await repairStoredTotals(report);
+    const fileName = `E-INVOICE_${String(report.invoiceNumber).replace(/[^a-zA-Z0-9._-]/g, '-')}.json`;
+    res.set({
+      'Content-Type': 'application/json; charset=utf-8',
+      'Content-Disposition': `attachment; filename="${fileName}"`
+    });
+    res.send(JSON.stringify([buildEInvoice(report)], null, 2));
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 router.get('/:id', protect, async (req, res) => {
   try {
     const report = await Report.findById(req.params.id)

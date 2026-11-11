@@ -43,6 +43,7 @@ export const reportAPI = {
   create: (data) => API.post('/reports', data),
   update: (id, data) => API.put(`/reports/${id}`, data),
   updatePayment: (id, data) => API.put(`/reports/${id}/payment`, data),
+  downloadEInvoice: (id) => API.get(`/reports/${id}/e-invoice`, { responseType: 'blob' }),
   exportGstSales: (params) => API.get('/reports/export/gst-sales', { params, responseType: 'blob' }),
   lock: (id, lock) => API.put(`/reports/${id}/lock`, { lock }),
   delete: (id) => API.delete(`/reports/${id}`)

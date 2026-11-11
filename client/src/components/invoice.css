@@ -35,23 +35,22 @@
 .inv-po { white-space: nowrap; }
 .inv-codes { display: grid; grid-template-columns: auto auto auto; column-gap: 4px; row-gap: 6px; align-content: start; justify-content: start; white-space: nowrap; }
 
-/* Items table: column dividers are drawn as backgrounds so they run the full
-   height of the (flexible) item area, like the reference invoice. */
+/* Use normal borders for the item columns. Full-height gradient separators can
+   be rasterised as a black fill by Chromium's print/PDF frame. */
 .inv-items {
   flex: 1 1 auto; display: flex; flex-direction: column;
   border-left: 1px solid #000; border-right: 1px solid #000; border-top: 1px solid #000;
-  background-image: linear-gradient(#000, #000), linear-gradient(#000, #000), linear-gradient(#000, #000), linear-gradient(#000, #000);
-  background-repeat: no-repeat; background-size: 1px 100%;
-  background-position: 7% 0, 50% 0, 66% 0, 82% 0;
+  background: #fff;
 }
 .inv-paper .inv-table { width: 100%; border-collapse: collapse; table-layout: fixed; background: transparent; }
-.inv-paper .inv-table tr, .inv-paper .inv-table tr:hover { background: transparent; transition: none; }
+.inv-paper .inv-table thead, .inv-paper .inv-table tbody, .inv-paper .inv-table tr, .inv-paper .inv-table tr:hover { background: #fff !important; transition: none; }
 .inv-paper .inv-table th, .inv-paper .inv-table td {
   color: #000; background: transparent; opacity: 1; text-transform: none; letter-spacing: 0;
   font-family: inherit; font-size: inherit; font-weight: 700; line-height: 1.2; white-space: normal;
   border: 0; border-radius: 0; text-align: center; vertical-align: top; padding: 6px 4px;
 }
 .inv-paper .inv-table th { border-bottom: 1px solid #000; vertical-align: middle; padding: 7px 4px; }
+.inv-paper .inv-table th:not(:last-child), .inv-paper .inv-table td:not(:last-child) { border-right: 1px solid #000; }
 .inv-paper .inv-table td.inv-desc { text-align: left; padding: 6px 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .inv-paper .inv-table tr.inv-fill td { padding: 0; height: 0; }
 .inv-items-spacer { flex: 1 1 auto; }
