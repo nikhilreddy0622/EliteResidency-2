@@ -82,8 +82,14 @@
 
 @page { size: A4 portrait; margin: 5mm; }
 @media print {
-  html, body { background: #fff !important; margin: 0; }
-  .inv-paper { box-shadow: none; margin: 0; }
+  html, body { background: #fff !important; margin: 0; padding: 0; }
+  .inv-paper { box-shadow: none !important; margin: 0 !important; width: 100% !important; }
   .inv-page { min-height: 287mm; }
   .inv-table tr, .inv-bank, .inv-tax, .inv-totalrow { break-inside: avoid; }
+
+  /* Ensure colored text always prints (teal headers, red company name, green address lines) */
+  .inv-teal  { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .inv-company-name { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .inv-company-line { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .inv-tax-note.is-reverse { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
